@@ -5,6 +5,10 @@ import pickle
 
 
 def return_dataset(cfg):
+    # My inclusion
+    """
+        This function loads the datasets into a Data.dataset module (pytorch suitable).
+    """
     if cfg.dataset_name=='volleyball':
         train_anns = volley_read_dataset(cfg.data_path, cfg.train_seqs)
         train_frames = volley_all_frames(train_anns)
