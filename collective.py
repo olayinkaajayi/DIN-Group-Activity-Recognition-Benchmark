@@ -9,14 +9,14 @@ import numpy as np
 
 from collections import Counter
 
-
+# This is a dictionary of each video. There are 44 videos and the value is the number of frames for each video.
 FRAMES_NUM={1: 302, 2: 347, 3: 194, 4: 257, 5: 536, 6: 401, 7: 968, 8: 221, 9: 356, 10: 302, 
             11: 1813, 12: 1084, 13: 851, 14: 723, 15: 464, 16: 1021, 17: 905, 18: 600, 19: 203, 20: 342, 
             21: 650, 22: 361, 23: 311, 24: 321, 25: 617, 26: 734, 27: 1804, 28: 470, 29: 635, 30: 356, 
             31: 690, 32: 194, 33: 193, 34: 395, 35: 707, 36: 914, 37: 1049, 38: 653, 39: 518, 40: 401, 
             41: 707, 42: 420, 43: 410, 44: 356}
 
- 
+ # This is the resolution of each of the 44 videos.
 FRAMES_SIZE={1: (480, 720), 2: (480, 720), 3: (480, 720), 4: (480, 720), 5: (480, 720), 6: (480, 720), 7: (480, 720), 8: (480, 720), 9: (480, 720), 10: (480, 720), 
              11: (480, 720), 12: (480, 720), 13: (480, 720), 14: (480, 720), 15: (450, 800), 16: (480, 720), 17: (480, 720), 18: (480, 720), 19: (480, 720), 20: (450, 800), 
              21: (450, 800), 22: (450, 800), 23: (450, 800), 24: (450, 800), 25: (480, 720), 26: (480, 720), 27: (480, 720), 28: (480, 720), 29: (480, 720), 30: (480, 720), 
@@ -28,6 +28,8 @@ ACTIONS=['NA','Crossing','Waiting','Queueing','Walking','Talking']
 ACTIVITIES=['Crossing','Waiting','Queueing','Walking','Talking']
 
 
+# I think this is the author's attempt at combining certain actions together.
+# Quote paper: merge the class 'crossing' and 'walking' into 'moving'
 ACTIONS_ID={a:i for i,a in enumerate(ACTIONS)}
 ACTIVITIES_ID={a:i for i,a in enumerate(ACTIVITIES)}
 Action6to5 = {0:0, 1:1, 2:2, 3:3, 4:1, 5:4}
@@ -35,6 +37,11 @@ Activity5to4 = {0:0, 1:1, 2:2, 3:0, 4:3}
 
 
 def collective_read_annotations(path,sid):
+    # My inclusion
+    """
+        This function gives an action lable to subset of frames.
+        It also normalizes the frame dimension to range: 0 to 1.
+    """
     annotations={}
     path=path + '/seq%02d/annotations.txt' % sid
     
