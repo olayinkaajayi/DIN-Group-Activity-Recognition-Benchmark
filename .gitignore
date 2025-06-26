@@ -1,3 +1,5 @@
 data
 *.pkl
 __pycache__
+result
+output.txt
