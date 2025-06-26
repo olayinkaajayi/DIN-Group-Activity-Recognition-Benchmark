@@ -219,7 +219,7 @@ class CollectiveDataset(data.Dataset):
         images = np.stack(images)
         activities = np.array(activities, dtype=np.int32)
         bboxes_num = np.array(bboxes_num, dtype=np.int32)
-        bboxes=np.array(bboxes,dtype=np.float).reshape(-1,self.num_boxes,4)
+        bboxes=np.array(bboxes,dtype=np.float64).reshape(-1,self.num_boxes,4) # changed to float64
         actions=np.array(actions,dtype=np.int32).reshape(-1,self.num_boxes)
         
         #convert to pytorch tensor
