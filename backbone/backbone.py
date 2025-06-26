@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torchvision.models as models
 # from thop import profile, clever_format
 from utils import MAC2FLOP
-from fvcore.nn import activation_count, flop_count, parameter_count
+# from fvcore.nn import activation_count, flop_count, parameter_count
 
     
 class MyInception_v3(nn.Module):
