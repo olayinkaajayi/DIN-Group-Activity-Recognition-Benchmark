@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
-from thop import profile, clever_format
+# from thop import profile, clever_format
 from utils import MAC2FLOP
 from fvcore.nn import activation_count, flop_count, parameter_count
 
