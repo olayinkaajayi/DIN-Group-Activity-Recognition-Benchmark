@@ -1,6 +1,6 @@
 import numpy as np
-import skimage.io
-import skimage.transform
+# import skimage.io
+# import skimage.transform
 
 import torch
 import torchvision.transforms as transforms
