@@ -1,6 +1,7 @@
 import time
 import os
 
+# My inclusion: This file gives a default value for most of the parameters for training and the model.
 
 class Config(object):
     """

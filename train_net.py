@@ -14,6 +14,9 @@ from gcn_model import *
 from base_model import *
 from utils import *
 
+# My inclusion: this has all the training functions for each of the datasets.
+# This is used for pretraining the backbone using either of the 2 datasets
+
 
 def set_bn_eval(m):
     classname = m.__class__.__name__
