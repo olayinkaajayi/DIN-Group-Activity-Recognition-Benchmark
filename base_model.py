@@ -14,7 +14,7 @@ class Basenet_volleyball(nn.Module):
         
         NFB=self.cfg.num_features_boxes
         D=self.cfg.emb_features
-        K=self.cfg.crop_size[0]
+        K=self.cfg.crop_size['output_size'][0] #crop_size is now a dictionary
         
 
         if cfg.backbone=='inv3':
@@ -221,7 +221,7 @@ class Basenet_collective(nn.Module):
         EPS=1e-5
         
         D=self.cfg.emb_features
-        K=self.cfg.crop_size[0]
+        K=self.cfg.crop_size['output_size'][0] #crop_size is now a dictionary
         
         # Reshape the input data
         images_in_flat=torch.reshape(images_in,(B*T,3,H,W))  #B*T, 3, H, W
