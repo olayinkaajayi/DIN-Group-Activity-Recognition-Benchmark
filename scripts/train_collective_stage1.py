@@ -8,6 +8,7 @@ try:
     cfg=Config('collective')
 
     cfg.device_list="0" # we have just 1 GPU
+    cfg.use_multi_gpu=False # just 1 GPU   
     cfg.training_stage=1
     cfg.train_backbone=True
 
@@ -21,8 +22,8 @@ try:
     # Added to make suitable for pytorch RoIAlign
     cfg.crop_size={'output_size':cfg.crop_size,
             'spatial_scale':1.0/16, # Adjust based on your backbone stride
-            'sampling_ratio':2,
-            'aligned':True}
+            'sampling_ratio':2
+            }
 
     cfg.batch_size=16
     cfg.test_batch_size=8 
