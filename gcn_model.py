@@ -1,6 +1,7 @@
 from backbone.backbone import *
 from utils import *
-from roi_align.roi_align import RoIAlign      # RoIAlign module
+# from roi_align.roi_align import RoIAlign      # RoIAlign module
+from torchvision.ops import RoIAlign # Using built in RoIAlign
 
 
 class GCN_Module(nn.Module):
@@ -115,7 +116,8 @@ class GCNnet_volleyball(nn.Module):
             for p in self.backbone.parameters():
                 p.requires_grad=False
         
-        self.roi_align=RoIAlign(*self.cfg.crop_size)
+        # unpack as kwarg to suit pytorch RoIAlign
+        self.roi_align=RoIAlign(**self.cfg.crop_size)
         
         self.fc_emb_1=nn.Linear(K*K*D,NFB)
         self.nl_emb_1=nn.LayerNorm([NFB])
@@ -191,14 +193,24 @@ class GCNnet_volleyball(nn.Module):
         
         
         # RoI Align
-        boxes_in_flat.requires_grad=False
-        boxes_idx_flat.requires_grad=False
-        boxes_features=self.roi_align(features_multiscale,
-                                            boxes_in_flat,
-                                            boxes_idx_flat)  #B*T*N, D, K, K,
+        # boxes_in_flat.requires_grad=False
+        # boxes_idx_flat.requires_grad=False
+        # boxes_features=self.roi_align(features_multiscale,
+        #                                     boxes_in_flat,
+        #                                     boxes_idx_flat)  #B*T*N, D, K, K,
+        
+
+        # Make suitable for PyTorch RoIAlign with proper box format
+        # Convert to [batch_index, x1, y1, x2, y2] format
+        boxes_with_batch_idx = torch.cat([
+            boxes_idx_flat.unsqueeze(1).float(),  # Add batch indices as first column
+            boxes_in_flat
+        ], dim=1)  # Shape: [B*T*N, 5]
+        
+        boxes_with_batch_idx.requires_grad=False
+        boxes_features = self.roi_align(features_multiscale, boxes_with_batch_idx)  #B*T*N, D, K, K
         
         boxes_features=boxes_features.reshape(B,T,N,-1)  #B,T,N, D*K*K
-        
         
         # Embedding 
         boxes_features=self.fc_emb_1(boxes_features)  # B,T,N, NFB
@@ -274,7 +286,8 @@ class GCNnet_collective(nn.Module):
             for p in self.backbone.parameters():
                 p.requires_grad=False
         
-        self.roi_align=RoIAlign(*self.cfg.crop_size)
+        # unpack as kwarg to suit pytorch RoIAlign
+        self.roi_align=RoIAlign(**self.cfg.crop_size)
         
         self.fc_emb_1=nn.Linear(K*K*D,NFB)
         self.nl_emb_1=nn.LayerNorm([NFB])
@@ -353,12 +366,22 @@ class GCNnet_collective(nn.Module):
         boxes_idx_flat=torch.reshape(boxes_idx,(B*T*MAX_N,))  #B*T*MAX_N,
 
         # RoI Align
-        boxes_in_flat.requires_grad=False
-        boxes_idx_flat.requires_grad=False
-        boxes_features_all=self.roi_align(features_multiscale,
-                                            boxes_in_flat,
-                                            boxes_idx_flat)  #B*T*MAX_N, D, K, K,
+        # boxes_in_flat.requires_grad=False
+        # boxes_idx_flat.requires_grad=False
+        # boxes_features_all=self.roi_align(features_multiscale,
+        #                                     boxes_in_flat,
+        #                                     boxes_idx_flat)  #B*T*MAX_N, D, K, K,
+
+        # Make suitable for PyTorch RoIAlign with proper box format
+        # Convert to [batch_index, x1, y1, x2, y2] format
+        boxes_with_batch_idx = torch.cat([
+            boxes_idx_flat.unsqueeze(1).float(),  # Add batch indices as first column
+            boxes_in_flat
+        ], dim=1)  # Shape: [B*T*N, 5]
         
+        boxes_with_batch_idx.requires_grad=False
+        boxes_features_all=self.roi_align(features_multiscale, boxes_with_batch_idx)  #B*T*MAX_N, D, K, K
+                
         boxes_features_all=boxes_features_all.reshape(B*T,MAX_N,-1)  #B*T,MAX_N, D*K*K
         
         # Embedding 
