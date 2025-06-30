@@ -1,6 +1,7 @@
 from backbone.backbone import *
 from utils import *
-from roi_align.roi_align import RoIAlign      # RoIAlign module
+# from roi_align.roi_align import RoIAlign      # RoIAlign module
+from torchvision.ops import RoIAlign # Using built in RoIAlign
 from infer_module.dynamic_infer_module import Dynamic_Person_Inference, Hierarchical_Dynamic_Inference, Multi_Dynamic_Inference
 from infer_module.pctdm_infer_module import PCTDM
 from infer_module.higcin_infer_module import CrossInferBlock
@@ -1138,7 +1139,7 @@ class Dynamic_collective(nn.Module):
         self.cfg = cfg
         T, N = cfg.num_frames, cfg.num_boxes
         D = self.cfg.emb_features
-        K = self.cfg.crop_size[0]
+        K=self.cfg.crop_size['output_size'][0] #crop_size is now a dictionary
         NFB = self.cfg.num_features_boxes
         NFR, NFG = self.cfg.num_features_relation, self.cfg.num_features_gcn
 
@@ -1158,7 +1159,8 @@ class Dynamic_collective(nn.Module):
             for p in self.backbone.parameters():
                 p.requires_grad = False
 
-        self.roi_align = RoIAlign(*self.cfg.crop_size)
+        # unpack as kwarg to suit pytorch RoIAlign
+        self.roi_align=RoIAlign(**self.cfg.crop_size)
         self.fc_emb_1 = nn.Linear(K * K * D, NFB)
         self.nl_emb_1 = nn.LayerNorm([NFB])
 
@@ -1258,11 +1260,21 @@ class Dynamic_collective(nn.Module):
         boxes_idx_flat = torch.reshape(boxes_idx, (B * T * MAX_N,))  # B*T*MAX_N,
 
         # RoI Align
-        boxes_in_flat.requires_grad = False
-        boxes_idx_flat.requires_grad = False
-        boxes_features_all = self.roi_align(features_multiscale,
-                                            boxes_in_flat,
-                                            boxes_idx_flat)  # B*T*MAX_N, D, K, K,
+        # boxes_in_flat.requires_grad = False
+        # boxes_idx_flat.requires_grad = False
+        # boxes_features_all = self.roi_align(features_multiscale,
+        #                                     boxes_in_flat,
+        #                                     boxes_idx_flat)  # B*T*MAX_N, D, K, K,
+
+        # Make suitable for PyTorch RoIAlign with proper box format
+        # Convert to [batch_index, x1, y1, x2, y2] format
+        boxes_with_batch_idx = torch.cat([
+            boxes_idx_flat.unsqueeze(1).float(),  # Add batch indices as first column
+            boxes_in_flat
+        ], dim=1)  # Shape: [B*T*N, 5]
+        
+        boxes_with_batch_idx.requires_grad=False
+        boxes_features_all=self.roi_align(features_multiscale, boxes_with_batch_idx)  #B*T*MAX_N, D, K, K
         boxes_features_all = boxes_features_all.reshape(B, T, MAX_N, -1)  # B*T,MAX_N, D*K*K
 
         # Embedding
