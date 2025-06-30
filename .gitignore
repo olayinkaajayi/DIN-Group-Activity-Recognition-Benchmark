@@ -4,3 +4,5 @@ __pycache__
 result
 output*
 *.sbatch
+*.out
+*.err
