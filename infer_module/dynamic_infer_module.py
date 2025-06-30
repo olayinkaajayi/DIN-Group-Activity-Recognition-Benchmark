@@ -1,13 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from thop import profile, clever_format
-from gcn_model import GCN_Module
-from config import Config
-from torchvision import models
+from thop import clever_format
 from utils import print_log
-from roi_align.roi_align import RoIAlign
-from fvcore.nn import activation_count, flop_count, parameter_count, parameter_count_table
 import numpy as np
 
 
