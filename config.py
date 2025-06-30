@@ -8,7 +8,7 @@ class Config(object):
     class to save config parameter
     """
 
-    def __init__(self, dataset_name):
+    def __init__(self, dataset_name, use_root=False):
         # Global
         self.image_size = 720, 1280  #input image size
         self.batch_size =  32  #train batch size 
@@ -30,7 +30,8 @@ class Config(object):
                                 0,2,8,12,17,19,24,26,27,28,30,33,46,49,51]  #video id list of train set 
             self.test_seqs = [4,5,9,11,14,20,21,25,29,34,35,37,43,44,45,47]  #video id list of test set
         else:
-            self.data_path='data/collective'  #data path for the collective dataset
+            root = "/dcs/large/u2034358/" if use_root else 'data'
+            self.data_path=f'{root}/collective'  #data path for the collective dataset
             self.test_seqs=[5,6,7,8,9,10,11,15,16,25,28,29]
             self.train_seqs=[s for s in range(1,45) if s not in self.test_seqs]
         
