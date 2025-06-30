@@ -2,22 +2,28 @@ import sys
 sys.path.append(".")
 from train_net_dynamic import *
 
-cfg=Config('collective')
+cfg=Config('collective', use_root=True)
 cfg.inference_module_name = 'dynamic_collective'
 
-cfg.device_list="0"
+cfg.device_list="0,1" # we have just 2 GPU
 cfg.training_stage=2
 cfg.use_gpu = True
-cfg.use_multi_gpu = False
+cfg.use_multi_gpu = True # we have just 2 GPU
 cfg.train_backbone = True
 cfg.load_backbone_stage2 = True
+
+# Added to make suitable for pytorch RoIAlign
+cfg.crop_size={'output_size':cfg.crop_size,
+        'spatial_scale':1.0/16, # Adjust based on your backbone stride
+        'sampling_ratio':2
+        }
 
 # ResNet18
 cfg.backbone = 'res18'
 cfg.image_size = 480, 720
 cfg.out_size = 15, 23
 cfg.emb_features = 512
-cfg.stage1_model_path = 'result/basemodel_CAD_res18.pth'
+cfg.stage1_model_path = 'saved_models/basemodel_CAD_res18.pth'
 
 # VGG16
 # cfg.backbone = 'vgg16'
