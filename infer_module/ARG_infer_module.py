@@ -1,6 +1,5 @@
 from backbone.backbone import *
 from utils import *
-from roi_align.roi_align import RoIAlign  # RoIAlign module
 
 
 class GCN_Module(nn.Module):

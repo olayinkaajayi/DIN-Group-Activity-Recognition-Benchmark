@@ -5,7 +5,6 @@ import numpy as np
 import cv2
 from utils import calc_pairwise_distance_3d
 # from hrnet.init_hrnet import cls_hrnet_w32, pose_hrnet_w32
-from config import Config
 
 #################       Bilinear Pooling Reasoning Module        ###################
 

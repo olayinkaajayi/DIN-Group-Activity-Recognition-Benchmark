@@ -1,12 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from config import Config
-from torchvision import models
-from thop import profile, clever_format
-from utils import print_log,MAC2FLOP
 import math
-from fvcore.nn import flop_count, parameter_count
 
 class PositionEmbeddingSine(nn.Module):
     """
