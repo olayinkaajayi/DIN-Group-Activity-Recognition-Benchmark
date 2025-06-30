@@ -5,7 +5,7 @@ sys.path.append(".")
 from train_net import *
 
 try:
-    cfg=Config('collective')
+    cfg=Config('collective', use_root=True)
 
     cfg.device_list="0" # we have just 1 GPU
     cfg.use_multi_gpu=False # just 1 GPU   
