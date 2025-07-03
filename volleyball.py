@@ -31,31 +31,31 @@ def volley_read_annotations(path):
     """
     reading annotations for the given sequence
     """
-    annotations = {}
+    annotations = {} # This is a dictionary for each unique file ID (data point). Each key is tied to a dictionary containing filename, group activity, actions of each person and bboxes(np.array)
 
-    gact_to_id = {name: i for i, name in enumerate(ACTIVITIES)}
+    gact_to_id = {name: i for i, name in enumerate(ACTIVITIES)} # group activity
     act_to_id = {name: i for i, name in enumerate(ACTIONS)}
 
     with open(path) as f:
         for l in f.readlines():
             values = l[:-1].split(' ')
-            file_name = values[0]
-            activity = gact_to_id[values[1]]
+            file_name = values[0] # file name
+            activity = gact_to_id[values[1]] # give integer associated with group activity
 
-            values = values[2:]
-            num_people = len(values) // 5
+            values = values[2:] # get all the remaining entries in the current line of the file
+            num_people = len(values) // 5 # Each person has 5 values assigned to them (y,x,w,h,action)
 
-            action_names = values[4::5]
+            action_names = values[4::5] # for the same above reason (5 values for each person), we get the action of each person [would not need this for the Cambridge dataset (CamD)]
             actions = [act_to_id[name]
-                       for name in action_names]
+                       for name in action_names] # we give a unique number for each person's action [not needed for CamD]
 
             def _read_bbox(xywh):
                 x, y, w, h = map(int, xywh)
-                return y, x, y+h, x+w
-            bboxes = np.array([_read_bbox(values[i:i+4])
-                               for i in range(0, 5*num_people, 5)])
+                return y, x, y+h, x+w # I assume x,y is the coordinate of the botom left corner of the bounding box.
+            bboxes = np.array([_read_bbox(values[i:i+4]) # we pass the section of the read line that contains bounding box info
+                               for i in range(0, 5*num_people, 5)]) # shape of bbox: num_people x 4 (for the 4 corners of the box)
 
-            fid = int(file_name.split('.')[0])
+            fid = int(file_name.split('.')[0]) # we get the file name without the .m4v extension (I am assuming the file format)
             annotations[fid] = {
                 'file_name': file_name,
                 'group_activity': activity,
