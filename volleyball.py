@@ -68,11 +68,18 @@ def volley_read_annotations(path):
 def volley_read_dataset(path, seqs):
     data = {}
     for sid in seqs:
+        # Each sid is a full video that has been divided already into subsequences with the relevant annotations provided.
+        # Note that the arg 'seqs' is the IDs that would be used for training and
+        # For CamD we have each video to be self-contained: it has just 1 group action.
         data[sid] = volley_read_annotations(path + '/%d/annotations.txt' % sid)
     return data
 
 
 def volley_all_frames(data):
+    """
+        This function gets the sequence ID and 'frame' ID of each of the data points. And this is placed in an list.
+        The frame ID is a subsequence in the main video sequence. This subsequence is given a unique ID.
+    """
     frames = []
     for sid, anns in data.items():
         for fid, ann in anns.items():
@@ -190,6 +197,7 @@ class VolleyballDataset(data.Dataset):
         sid, src_fid = frame
         
         if self.is_finetune:
+            # This part is relevant when finetunning the backbone
             if self.is_training:
                 fid=random.randint(src_fid-self.num_before, src_fid+self.num_after)
                 return [(sid, src_fid, fid)]
@@ -213,6 +221,9 @@ class VolleyballDataset(data.Dataset):
                     return [(sid, src_fid, fid)
                             for fid in  [src_fid-3,src_fid,src_fid+3, src_fid-4,src_fid-1,src_fid+2, src_fid-2,src_fid+1,src_fid+4 ]]
             else:
+                # This is the part we are interested in for the DIN model
+                # Why do we need 4 frames before and 5 frames after???
+                # Ans: these are the frames where the specific group action takes place.
                 if self.is_training:
                     return [(sid, src_fid, fid)  for fid in range(src_fid-self.num_before, src_fid+self.num_after+1)]
                 else:
@@ -245,9 +256,9 @@ class VolleyballDataset(data.Dataset):
 
             temp_boxes=np.ones_like(self.tracks[(sid, src_fid)][fid])
             for i,track in enumerate(self.tracks[(sid, src_fid)][fid]):
-                
+                # Run through the bboxes of all 12 players
                 y1,x1,y2,x2 = track
-                w1,h1,w2,h2 = x1*OW, y1*OH, x2*OW, y2*OH  
+                w1,h1,w2,h2 = x1*OW, y1*OH, x2*OW, y2*OH  # scale the bboxes to match image resolution
                 temp_boxes[i]=np.array([w1,h1,w2,h2])
             
             boxes.append(temp_boxes)
@@ -258,7 +269,7 @@ class VolleyballDataset(data.Dataset):
             if len(boxes[-1]) != self.num_boxes:
                 boxes[-1] = np.vstack([boxes[-1], boxes[-1][:self.num_boxes-len(boxes[-1])]])
                 actions[-1] = actions[-1] + actions[-1][:self.num_boxes-len(actions[-1])]
-            activities.append(self.anns[sid][src_fid]['group_activity'])
+            activities.append(self.anns[sid][src_fid]['group_activity']) # group activity for set of frames
 
         images = np.stack(images)
         activities = np.array(activities, dtype=np.int32)
