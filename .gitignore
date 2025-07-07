@@ -4,3 +4,5 @@ __pycache__
 result
 output*
 zz_*
+*.mp4
+*.sh
