@@ -1,5 +1,7 @@
 from volleyball import *
 from collective import *
+from cambridge_dataset import camD_annotate, CambridgeDataset
+from config import Config
 
 import pickle
 
@@ -42,7 +44,20 @@ def return_dataset(cfg):
         validation_set=CollectiveDataset(test_anns,test_frames,
                                       cfg.data_path,cfg.image_size,cfg.out_size,
                                       num_frames = cfg.num_frames, is_training=False,is_finetune=(cfg.training_stage==1))
-                              
+        
+    elif cfg.dataset_name=='cambridge':
+        train_anns, test_anns = camD_annotate(cfg.data_path, cfg.split_ratio)
+        
+        training_set=CambridgeDataset(train_anns,cfg.image_size,is_training=True,is_finetune=(cfg.training_stage==1))
+
+        validation_set=CambridgeDataset(test_anns,cfg.image_size,is_training=False,is_finetune=(cfg.training_stage==1))
+
+        print('Reading dataset finished...')
+        print('%d train samples'%len(training_set))
+        print('%d test samples'%len(validation_set))
+        
+        return training_set, validation_set
+
     else:
         assert False
                                          
@@ -53,3 +68,7 @@ def return_dataset(cfg):
     
     return training_set, validation_set
     
+
+if __name__=="__main__":
+    cfg = Config('cambridge')
+    training_set, validation_set = return_dataset(cfg)
