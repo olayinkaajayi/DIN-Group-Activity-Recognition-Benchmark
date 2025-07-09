@@ -19,11 +19,12 @@ cfg.crop_size={'output_size':cfg.crop_size,
         }
 
 # ResNet18
-cfg.backbone = 'res18'
+# cfg.backbone = 'res18'
+cfg.backbone='inv3'# we already defaulted to using InceptionV3 in stage 1. Can change to vgg16 later
 cfg.image_size = 480, 720
 cfg.out_size = 15, 23
-cfg.emb_features = 512
-cfg.stage1_model_path = 'saved_models/basemodel_CAD_res18.pth'
+cfg.emb_features = 1056 #512
+cfg.stage1_model_path = '/dcs/large/u2034358/saved_models/basemodel_CAD_inv3.pth'
 
 # VGG16
 # cfg.backbone = 'vgg16'
