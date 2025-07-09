@@ -23,6 +23,13 @@ cfg.num_after = 4
 cfg.batch_size=8
 cfg.test_batch_size=1
 cfg.num_frames=1
+
+# Added to make suitable for pytorch RoIAlign
+cfg.crop_size={'output_size':cfg.crop_size,
+        'spatial_scale':1.0/16, # Adjust based on your backbone stride
+        'sampling_ratio':2
+        }
+
 # cfg.train_learning_rate=1e-5
 # cfg.lr_plan={}
 # cfg.max_epoch=200

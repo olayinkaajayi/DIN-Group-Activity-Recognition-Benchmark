@@ -21,14 +21,17 @@ class Config(object):
         self.device_list="0,1,2,3"  #id list of gpus used for training 
         
         # Dataset
-        assert(dataset_name in ['volleyball', 'collective'])
+        assert(dataset_name in ['volleyball', 'collective', 'cambridge'])
         self.dataset_name=dataset_name 
         
         if dataset_name=='volleyball':
-            self.data_path = 'data/volleyball/videos' #data path for the volleyball dataset
+            self.data_path = 'data/volleyball' #data path for the volleyball dataset
             self.train_seqs = [ 1,3,6,7,10,13,15,16,18,22,23,31,32,36,38,39,40,41,42,48,50,52,53,54,
                                 0,2,8,12,17,19,24,26,27,28,30,33,46,49,51]  #video id list of train set 
             self.test_seqs = [4,5,9,11,14,20,21,25,29,34,35,37,43,44,45,47]  #video id list of test set
+        elif dataset_name=='cambridge':
+            self.data_path = 'data/CamD-1'
+            self.split_ratio = 0.8
         else:
             root = "/dcs/large/u2034358/" if use_root else 'data'
             self.data_path=f'{root}/collective'  #data path for the collective dataset

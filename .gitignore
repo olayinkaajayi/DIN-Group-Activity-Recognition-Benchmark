@@ -7,3 +7,6 @@ output*
 *.out
 *.err
 check_state_dict.py
+zz_*
+*.mp4
+*.sh
