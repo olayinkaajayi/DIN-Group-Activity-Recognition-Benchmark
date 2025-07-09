@@ -274,7 +274,7 @@ class Dynamic_Person_Inference(nn.Module):
         else:
             ft_infer = torch.mean(ft_infer, dim = 3)
 
-        return ft_infer, ft_infer_MAD
+        return ft_infer, ft_infer_MAD # This means ---> Dynamic Relation, Dynamic Walk (according to the paper)
 
 
     def parallel_infer(self, person_features, ratio):
