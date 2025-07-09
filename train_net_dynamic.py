@@ -361,6 +361,7 @@ def train_collective(data_loader, model, device, optimizer, epoch, cfg):
         # actions_meter.update(actions_accuracy, actions_scores.shape[0])
 
         # Predict activities
+        activities_scores = activities_scores['activities']
         activities_loss=F.cross_entropy(activities_scores,activities_in)
         activities_labels=torch.argmax(activities_scores,dim=1)  #B*T,
         activities_correct=torch.sum(torch.eq(activities_labels.int(),activities_in.int()).float())
@@ -441,6 +442,7 @@ def test_collective(data_loader, model, device, epoch, cfg):
             # actions_meter.update(actions_accuracy, actions_scores.shape[0])
 
             # Predict activities
+            activities_scores = activities_scores['activities']
             activities_loss=F.cross_entropy(activities_scores,activities_in)
             activities_labels=torch.argmax(activities_scores,dim=1)  #B,
             activities_correct=torch.sum(torch.eq(activities_labels.int(),activities_in.int()).float())
