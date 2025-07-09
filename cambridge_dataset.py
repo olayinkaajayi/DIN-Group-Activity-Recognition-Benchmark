@@ -38,13 +38,13 @@ def get_bounding_box(filename, frame_id):
     with open(filename, 'r') as file:
         data = json.load(file)
 
-    bbox = np.zeros(6,4)
+    bbox = np.zeros((6,4))
 
     for entry in data[str(frame_id)]['body_list']:
         # entry["bounding_box_2d"]: (x1,y1),(x2,y1),(x2,y2),(x1,y2)
         x1y1=entry["bounding_box_2d"][0]
         x2y2=entry["bounding_box_2d"][2]
-        bbox[entry["id"]] = np.array([chain(*[x1y1,x2y2])])
+        bbox[entry["id"]] = np.array(list(chain(*[x1y1,x2y2])))
 
     return bbox
 
@@ -60,18 +60,21 @@ def camD_annotate(path,split_ratio=0.7,seed=21):
     gact_to_id = {name: i for i, name in enumerate(ACTIVITIES)} # group activity
     data_list = os.listdir(path)
     
+    cnt=0
     for d_ent in data_list:
         
         if d_ent[:-5] not in ['RED','YELLOW','BLACK','GREEN','BLUE','WHITE']:
             continue
         
-        video = get_video_as_frames(os.path.join(path,d_ent,f'{d_ent}.mp4'))
+        video = get_video_as_frames(os.path.join(path,d_ent,f'{d_ent}_left.mp4'))
+        
         annotations.append( {
                 'file_name': d_ent,
                 'video_frames': video,
                 'group_activity': gact_to_id[d_ent[-5:-3]],
                 'bboxes': [get_bounding_box(os.path.join(path,d_ent,'bodies.json'), frame) for frame in range(len(video))]
             } )
+        cnt += 1
         
     # Shuffle and split
     random.shuffle(annotations)
