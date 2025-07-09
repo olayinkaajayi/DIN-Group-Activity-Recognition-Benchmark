@@ -7,10 +7,11 @@ from train_net import *
 try:
     cfg=Config('collective', use_root=True)
 
-    cfg.device_list="0" # we have just 1 GPU
-    cfg.use_multi_gpu=False # just 1 GPU   
+    cfg.device_list="0,1" # we have just 2 GPU
+    cfg.use_multi_gpu=True # just 2 GPU   
     cfg.training_stage=1
     cfg.train_backbone=True
+    cfg.backbone='inv3'# we already defaulted to using InceptionV3 in stage 1. Can change to vgg16 later
 
     cfg.image_size=480, 720
     cfg.out_size=57,87
