@@ -6,3 +6,4 @@ output*
 *.sbatch
 *.out
 *.err
+check_state_dict.py
