@@ -40,7 +40,7 @@ def train_net(cfg):
     params = {
         'batch_size': cfg.batch_size,
         'shuffle': True,
-        'num_workers': 4, # 4,
+        'num_workers': 4
     }
     training_loader=data.DataLoader(training_set,**params)
     
@@ -62,8 +62,9 @@ def train_net(cfg):
         device = torch.device('cpu')
     
     # Build model and optimizer
-    basenet_list={'volleyball':Basenet_volleyball, 'collective':Basenet_collective}
-    gcnnet_list={'dynamic_volleyball':Dynamic_volleyball,
+    basenet_list={'cambridge':Basenet_volleyball,'volleyball':Basenet_volleyball, 'collective':Basenet_collective}
+    gcnnet_list={'dynamic_cambridge': Dynamic_volleyball,
+                 'dynamic_volleyball':Dynamic_volleyball,
                  'dynamic_tce_volleyball':Dynamic_TCE_volleyball,
                  'pctdm_volleyball':PCTDM_volleyball,
                  'higcin_volleyball':HiGCIN_volleyball,
@@ -103,8 +104,8 @@ def train_net(cfg):
     
     optimizer=optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),lr=cfg.train_learning_rate,weight_decay=cfg.weight_decay)
 
-    train_list={'volleyball':train_volleyball, 'collective':train_collective}
-    test_list={'volleyball':test_volleyball, 'collective':test_collective}
+    train_list={'cambridge':train_cambridge, 'volleyball':train_volleyball, 'collective':train_collective}
+    test_list={'cambridge':test_cambridge, 'volleyball':test_volleyball, 'collective':test_collective}
     train=train_list[cfg.dataset_name]
     test=test_list[cfg.dataset_name]
     
@@ -155,7 +156,125 @@ def train_net(cfg):
     #                         print('model saved to:',filepath)
             else:
                 assert False
-   
+
+
+def train_cambridge(data_loader, model, device, optimizer, epoch, cfg):
+    activities_meter=AverageMeter()
+    loss_meter=AverageMeter()
+    epoch_timer=Timer()
+    activities_conf = ConfusionMeter(cfg.num_activities)
+    for batch_idx, batch_data in enumerate(data_loader):
+        if batch_idx % 850 == 0 and batch_idx > 0:
+            print('Training in processing {}/{}, group Activity Loss: {:.4f}'.format(batch_idx, len(data_loader), loss_meter.avg))
+
+        model.train()
+        if cfg.set_bn_eval:
+            model.apply(set_bn_eval)
+    
+        # prepare batch data
+        batch_data=[b.to(device = device) for b in batch_data]
+        batch_size=batch_data[0].shape[0]
+        
+        activities_in=batch_data[2]
+        activities_in=activities_in[:,0].reshape((batch_size,))
+
+        # forward
+        ret= model((batch_data[0], batch_data[1]))
+
+        # Predict activities
+        loss_list = []
+        if 'activities' in list(ret.keys()):
+            activities_scores = ret['activities']
+            activities_loss = F.cross_entropy(activities_scores,activities_in)
+            loss_list.append(activities_loss)
+            activities_labels = torch.argmax(activities_scores,dim=1)
+            activities_correct = torch.sum(torch.eq(activities_labels.int(),activities_in.int()).float())
+            activities_accuracy = activities_correct.item() / activities_scores.shape[0]
+            activities_meter.update(activities_accuracy, activities_scores.shape[0])
+            activities_conf.add(activities_labels, activities_in)
+
+
+        if 'halting' in list(ret.keys()):
+            loss_list.append(ret['halting']*cfg.halting_penalty)
+
+        # print(loss_list)
+        total_loss = sum(loss_list)
+        loss_meter.update(total_loss.item(), batch_size)
+
+        # Optim
+        optimizer.zero_grad()
+        total_loss.backward()
+        # Test max_clip_norm
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        optimizer.step()
+    
+    train_info={
+        'time':epoch_timer.timeit(),
+        'epoch':epoch,
+        'loss':loss_meter.avg,
+        'activities_acc':activities_meter.avg*100,
+        'activities_conf':activities_conf.value(),
+        'activities_MPCA':MPCA(activities_conf.value()),
+    }
+    
+    return train_info
+        
+    
+def test_cambridge(data_loader, model, device, epoch, cfg):
+    model.eval()
+    activities_meter=AverageMeter()
+    loss_meter=AverageMeter()
+    activities_conf = ConfusionMeter(cfg.num_activities)
+    epoch_timer=Timer()
+
+    with torch.no_grad():
+        for batch_data_test in data_loader:
+            # prepare batch data
+            batch_data_test=[b.to(device=device) for b in batch_data_test]
+            batch_size=batch_data_test[0].shape[0]
+            num_frames=batch_data_test[0].shape[1]
+
+            activities_in=batch_data_test[2].reshape((batch_size,num_frames))
+            
+            # forward
+            ret = model((batch_data_test[0], batch_data_test[1]))
+            
+            # Predict activities
+            activities_in=activities_in[:,0].reshape((batch_size,))
+
+            # Predict activities
+            loss_list = []
+            if 'activities' in list(ret.keys()):
+                activities_scores = ret['activities']
+                activities_loss = F.cross_entropy(activities_scores,activities_in)
+                loss_list.append(activities_loss)
+                activities_labels = torch.argmax(activities_scores,dim=1)
+
+                activities_correct = torch.sum(torch.eq(activities_labels.int(),activities_in.int()).float())
+                activities_accuracy = activities_correct.item() / activities_scores.shape[0]
+                activities_meter.update(activities_accuracy, activities_scores.shape[0])
+                activities_conf.add(activities_labels, activities_in)
+
+            if 'halting' in list(ret.keys()):
+                loss_list.append(ret['halting'])
+
+            # Total loss
+            total_loss = sum(loss_list)
+            loss_meter.update(total_loss.item(), batch_size)
+
+    test_info={
+        'time':epoch_timer.timeit(),
+        'epoch':epoch,
+        'loss':loss_meter.avg,
+        'activities_acc':activities_meter.avg*100,
+        'activities_conf': activities_conf.value(),
+        'activities_MPCA': MPCA(activities_conf.value()),
+    }
+    
+    return test_info
+
+
+
 def train_volleyball(data_loader, model, device, optimizer, epoch, cfg):
     train_with_action = False
     actions_meter=AverageMeter()
