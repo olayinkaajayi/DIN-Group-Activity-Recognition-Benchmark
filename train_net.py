@@ -167,8 +167,7 @@ def train_cambridge(data_loader, model, device, optimizer, epoch, cfg):
         actions_scores,activities_scores=model((batch_data[0],batch_data[1]))
 
         # Predict actions
-        actions_weights=torch.tensor(cfg.actions_weights).to(device=device)
-        actions_loss=F.cross_entropy(actions_scores,actions_in,weight=actions_weights)  
+        actions_loss=F.cross_entropy(actions_scores,actions_in)  
         actions_labels=torch.argmax(actions_scores,dim=1)  
         actions_correct=torch.sum(torch.eq(actions_labels.int(),actions_in.int()).float())
 
@@ -216,12 +215,6 @@ def test_cambridge(data_loader, model, device, epoch, cfg):
         for batch_data_test in data_loader:
             # prepare batch data
             batch_data_test=[b.to(device=device) for b in batch_data_test]
-
-            print("###Shapes")
-            print(f"image: {batch_data_test[0].shape}")
-            print(f"bboxes: {batch_data_test[1].shape}")
-            print(f"actions: {batch_data_test[2].shape}")
-            print(f"activities: {batch_data_test[3].shape}")
             
             batch_size=batch_data_test[0].shape[0]
             num_frames=batch_data_test[0].shape[1]
@@ -237,8 +230,7 @@ def test_cambridge(data_loader, model, device, epoch, cfg):
             actions_in=actions_in[:,0,:].reshape((batch_size*cfg.num_boxes,))
             activities_in=activities_in[:,0].reshape((batch_size,))
             
-            actions_weights=torch.tensor(cfg.actions_weights).to(device=device)
-            actions_loss=F.cross_entropy(actions_scores,actions_in,weight=actions_weights)  
+            actions_loss=F.cross_entropy(actions_scores,actions_in)  
             actions_labels=torch.argmax(actions_scores,dim=1) 
 
             # Predict activities
