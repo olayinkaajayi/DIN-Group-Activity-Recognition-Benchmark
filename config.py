@@ -10,7 +10,7 @@ class Config(object):
 
     def __init__(self, dataset_name, use_root=False):
         # Global
-        self.image_size = 720, 1280  #input image size
+        self.image_size = 720, 1280  #input image size (H x W)
         self.batch_size =  32  #train batch size 
         self.test_batch_size = 8  #test batch size
         self.num_boxes = 12  #max number of bounding boxes in each frame
@@ -30,8 +30,14 @@ class Config(object):
                                 0,2,8,12,17,19,24,26,27,28,30,33,46,49,51]  #video id list of train set 
             self.test_seqs = [4,5,9,11,14,20,21,25,29,34,35,37,43,44,45,47]  #video id list of test set
         elif dataset_name=='cambridge':
-            self.data_path = 'data/CamD-1'
+            root = "/dcs/large/u2034358" if use_root else 'data'
+            self.data_path = f'{root}/CamD-1-Subset' if use_root else f'data/CamD-1'
             self.split_ratio = 0.8
+            self.down_sample = True
+            self.min_frame_id = 10
+            self.ignore_last_n_frames = 10
+            self.max_video_len = 10 # increase this and see how it affects results
+            self.resize = True
         else:
             root = "/dcs/large/u2034358/" if use_root else 'data'
             self.data_path=f'{root}/collective'  #data path for the collective dataset
