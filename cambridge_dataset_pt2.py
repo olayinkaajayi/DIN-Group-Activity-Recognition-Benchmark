@@ -1,7 +1,7 @@
 import os
+import sys
 import json
 import random
-from itertools import chain
 
 import numpy as np
 import torch
@@ -50,7 +50,8 @@ def camD_annotate(path, split_ratio=0.7, seed=21):
 
 
 class CambridgeDataset(data.Dataset):
-    def __init__(self, ann, image_size=None, num_boxes=6, is_training=True, is_finetune=False, resize=False):
+    def __init__(self, ann, image_size=None, num_boxes=6, is_training=True, is_finetune=False, resize=False,
+                 down_sample=False, min_frame_id=10, ignore_last_n_frames=10, max_video_len=100):
         """
         Args:
             ann: List of annotation dicts
@@ -58,6 +59,7 @@ class CambridgeDataset(data.Dataset):
             num_boxes: Number of boxes per frame (e.g., 6 people)
             is_training: Bool flag
             resize: Whether to resize frames
+            down_sample: reduce the frame rate of the videos
         """
         self.anns = ann
         self.image_size = image_size
@@ -65,6 +67,10 @@ class CambridgeDataset(data.Dataset):
         self.is_training = is_training
         self.is_finetune = is_finetune
         self.resize = resize
+        self.down_sample = down_sample
+        self.min_frame_id = min_frame_id
+        self.ignore_last_n_frames = ignore_last_n_frames
+        self.max_video_len = max_video_len
 
     def __len__(self):
         return len(self.anns)
@@ -90,9 +96,20 @@ class CambridgeDataset(data.Dataset):
 
             # Convert BGR (OpenCV) to RGB
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            orig_h, orig_w = frame_rgb.shape[:2] # Needed to rescale bbox
+
+            # Reduce frame rate
+            if self.down_sample:
+                frame_id, skip = self.skip_frames(frame_id)
+
+                if skip: # we pass over reading the data of the current frame
+                    continue
 
             if self.resize and self.image_size is not None:
-                frame_rgb = cv2.resize(frame_rgb, self.image_size[::-1])  # (W, H)
+                new_h, new_w = self.image_size  # Needed to rescale bbox
+                frame_rgb = cv2.resize(frame_rgb, (new_w, new_h)) # (H, W, 3)
+            else:
+                new_h, new_w = orig_h, orig_w # Needed to rescale bbox
 
             # Convert to tensor without normalization: [H, W, 3] -> [3, H, W]
             img_tensor = torch.from_numpy(frame_rgb).permute(2, 0, 1).float()
@@ -101,20 +118,120 @@ class CambridgeDataset(data.Dataset):
             # Get bounding boxes for this frame
             frame_bboxes = np.zeros((self.num_boxes, 4))
             frame_key = str(frame_id)
+
+            # Scale Bboxes
+            scale_x = new_w / orig_w
+            scale_y = new_h / orig_h
             if frame_key in bboxes_json:
                 for entry in bboxes_json[frame_key]['body_list']:
-                    x1y1 = entry["bounding_box_2d"][0]
-                    x2y2 = entry["bounding_box_2d"][2]
-                    frame_bboxes[entry["id"]] = np.array(list(chain(*[x1y1, x2y2])))
+
+                    rescaled = self.rescaled_bbox(entry["bounding_box_2d"][0], entry["bounding_box_2d"][2], scale_x, scale_y)
+                    actor_id = entry["id"] #### decide whether to use id or unique_object_id
+
+                    if actor_id < self.num_boxes:
+                        frame_bboxes[actor_id] = np.array(rescaled)
+                    else:
+                        pass # ignore warning for now
+                        # print(f"Warning: actor_id {actor_id} exceeds num_boxes {self.num_boxes}")
+                        # sys.stdout.flush()
 
             bboxes.append(torch.from_numpy(frame_bboxes).float())
             frame_id += 1
 
         cap.release()
 
+        # Ignore last set of frames where they cluster
+        images = self.ignore_ending_frames(images)
+        bboxes = self.ignore_ending_frames(bboxes)
+        # Downsampling
+        indices = self.downsample_frames(images)
+        images = self.return_downsampled_items(images, indices)
+        bboxes = self.return_downsampled_items(bboxes, indices)
+
         images = torch.stack(images)             # [T, 3, H, W]
         bboxes = torch.stack(bboxes)             # [T, num_boxes, 4]
         activities = torch.full((images.size(0),), group_activity, dtype=torch.long)
-        actions = torch.full((images.size(0),self.num_boxes), group_activity, dtype=torch.long) #this is redundant
+        
+        return images, bboxes, activities
+    
+    def skip_frames(self, frame_id):
+        "skip begining frames of the video."
+        if frame_id < self.min_frame_id:
+            return (frame_id + 1), True
+        else:
+            return frame_id, False
 
-        return images, bboxes, actions, activities
+
+    def downsample_frames(self, frames):
+        """
+        Downsample a list of video frames to a specified target length.
+        
+        Args:
+            frames (list): A list of video frames (e.g., list of numpy arrays or tensors).
+            target_frame_count (int): The desired number of frames after downsampling.
+            
+        Returns:
+            list: A uniformly downsampled list of frames.
+        """
+        if self.is_finetune:
+            return self.downsample_frames_random(frames)
+        
+        T = len(frames)
+        target_frame_count = self.max_video_len
+        
+        # If the video is already short enough, return as is or pad if needed
+        if target_frame_count >= T:
+            return frames
+        
+        # Compute indices for uniform sampling
+        indices = [int(i * T / target_frame_count) for i in range(target_frame_count)]
+        
+        # Ensure last index doesn't exceed bounds
+        indices[-1] = min(indices[-1], T - 1)
+
+        return indices
+    
+    
+    def downsample_frames_random(self, frames, order=False):
+        """
+        Returns sorted random indices for downsampling T frames to max_frames.
+
+        Args:
+            T (int): Total number of frames in the video.
+            max_frames (int): Maximum number of frames to keep after downsampling.
+
+        Returns:
+            list[int]: Sorted list of frame indices to keep.
+        """
+
+        T = len(frames)
+        max_frames = self.max_video_len
+
+        if T <= max_frames:
+            return list(range(T))  # No downsampling needed
+
+        # Randomly sample without replacement, then sort to preserve original order
+        indices = random.sample(range(T), max_frames)
+
+        if order:
+            indices.sort()
+
+        return indices
+
+    
+    def return_downsampled_items(self, ent_list, indices):
+        return [ent_list[i] for i in indices]
+
+
+    def ignore_ending_frames(self, ent_list):
+        return ent_list[:-self.ignore_last_n_frames]
+
+    def rescaled_bbox(self, x1y1, x2y2, scale_x, scale_y):
+        x1, y1 = x1y1
+        x2, y2 = x2y2
+        return [
+                x1 * scale_x,
+                y1 * scale_y,
+                x2 * scale_x,
+                y2 * scale_y
+                ]
