@@ -23,7 +23,7 @@ class Dynamic_volleyball(nn.Module):
         
         T, N=self.cfg.num_frames, self.cfg.num_boxes
         D=self.cfg.emb_features
-        K=self.cfg.crop_size[0]
+        K=self.cfg.crop_size['output_size'][0] #crop_size is now a dictionary
         NFB=self.cfg.num_features_boxes
         NFR, NFG=self.cfg.num_features_relation, self.cfg.num_features_gcn
         NG=self.cfg.num_graph
@@ -46,7 +46,8 @@ class Dynamic_volleyball(nn.Module):
             for p in self.backbone.parameters():
                 p.requires_grad=False
         
-        self.roi_align = RoIAlign(*self.cfg.crop_size)
+        # unpack as kwarg to suit pytorch RoIAlign
+        self.roi_align=RoIAlign(**self.cfg.crop_size)
         # self.avgpool_person = nn.AdaptiveAvgPool2d((1,1))
         self.fc_emb_1 = nn.Linear(K*K*D,NFB)
         self.nl_emb_1 = nn.LayerNorm([NFB])
@@ -75,7 +76,7 @@ class Dynamic_volleyball(nn.Module):
             #     cfg = cfg)
             self.DPI = Multi_Dynamic_Inference(
                 in_dim = in_dim,
-                person_mat_shape = (10, 12),
+                person_mat_shape = (10, 12) if cfg.dataset_name=='volleyball' else (cfg.max_video_len,cfg.num_boxes),
                 stride = cfg.stride,
                 kernel_size = cfg.ST_kernel_size,
                 dynamic_sampling=cfg.dynamic_sampling,
@@ -174,11 +175,21 @@ class Dynamic_volleyball(nn.Module):
         
         
         # RoI Align
-        boxes_in_flat.requires_grad=False
-        boxes_idx_flat.requires_grad=False
-        boxes_features=self.roi_align(features_multiscale,
-                                            boxes_in_flat,
-                                            boxes_idx_flat)  #B*T*N, D, K, K,
+        # boxes_in_flat.requires_grad=False
+        # boxes_idx_flat.requires_grad=False
+        # boxes_features=self.roi_align(features_multiscale,
+        #                                     boxes_in_flat,
+        #                                     boxes_idx_flat)  #B*T*N, D, K, K,
+        
+        # Make suitable for PyTorch RoIAlign with proper box format
+        # Convert to [batch_index, x1, y1, x2, y2] format
+        boxes_with_batch_idx = torch.cat([
+            boxes_idx_flat.unsqueeze(1).float(),  # Add batch indices as first column
+            boxes_in_flat
+        ], dim=1)  # Shape: [B*T*N, 5]
+        
+        boxes_with_batch_idx.requires_grad=False
+        boxes_features=self.roi_align(features_multiscale, boxes_with_batch_idx)  #B*T*MAX_N, D, K, K
         boxes_features=boxes_features.reshape(B,T,N,-1)  #B,T,N, D*K*K
 
         # Embedding 
@@ -232,7 +243,7 @@ class Dynamic_volleyball(nn.Module):
         activities_scores = activities_scores.reshape(B, T, -1)
         activities_scores = torch.mean(activities_scores,dim=1).reshape(B,-1)
 
-        return {'activities':activities_scores} # actions_scores, activities_scores
+        return {'activities':activities_scores}
 
 
 class Dynamic_TCE_volleyball(nn.Module):
@@ -1328,4 +1339,4 @@ class Dynamic_collective(nn.Module):
         # actions_scores = torch.cat(actions_scores, dim=0)  # ALL_N,actn_num
         activities_scores = torch.cat(activities_scores, dim=0)  # B,acty_num
 
-        return {'activities':activities_scores}# activities_scores # actions_scores,
+        return {'activities':activities_scores}
