@@ -42,7 +42,9 @@ def train_net(cfg):
         'shuffle': True,
         'num_workers': 4
     }
-    training_loader=data.DataLoader(training_set,**params)
+
+    if not cfg.run_test_only:
+        training_loader=data.DataLoader(training_set,**params)
     
     params['batch_size']=cfg.test_batch_size
     validation_loader=data.DataLoader(validation_set,**params)
@@ -73,10 +75,10 @@ def train_net(cfg):
                  'sacrf_biute_volleyball':SACRF_BiUTE_volleyball,
                  'dynamic_collective':Dynamic_collective}
     
-    if cfg.training_stage==1:
+    if (cfg.training_stage + cfg.run_test_only)==1:
         Basenet = basenet_list[cfg.dataset_name]
         model = Basenet(cfg)
-    elif cfg.training_stage==2:
+    elif (cfg.training_stage + cfg.run_test_only)==2:
         GCNnet = gcnnet_list[cfg.inference_module_name]
         model = GCNnet(cfg)
         # Load backbone
@@ -90,6 +92,28 @@ def train_net(cfg):
             print_log(cfg.log_path, 'Loading stage2 model: ' + cfg.stage2model)
         else:
             print_log(cfg.log_path, 'Not loading stage1 or stage2 model.')
+            
+    elif (cfg.training_stage + cfg.run_test_only)==3:
+        # Inference only
+        GCNnet = gcnnet_list[cfg.inference_module_name]
+        model = GCNnet(cfg)
+        # Load backbone
+        if cfg.load_backbone_stage2:
+            model.loadmodel(cfg.stage1_model_path)
+        if cfg.load_stage2model:
+            # if cfg.use_multi_gpu:
+            #     model = nn.DataParallel(model)
+            state_dict = torch.load(cfg.stage2model)
+            # Handle 'module.' prefix in state_dict
+            state = state_dict['state_dict']
+            new_state_dict = {}
+            for k, v in state.items():
+                new_key = k.replace("module.", "") if k.startswith("module.") else k
+                new_state_dict[new_key] = v
+            model.load_state_dict(new_state_dict)
+            print_log(cfg.log_path, 'Loading stage2 model: ' + cfg.stage2model)
+        else:
+            print_log(cfg.log_path, 'Not loading stage2 model.')
     else:
         assert(False)
     
@@ -115,7 +139,7 @@ def train_net(cfg):
 
     # Training iteration
     best_result = {'epoch':0, 'activities_acc':0}
-    start_epoch = 1
+    start_epoch = cfg.start_epoch
     for epoch in range(start_epoch, start_epoch+cfg.max_epoch):
         
         if epoch in cfg.lr_plan:

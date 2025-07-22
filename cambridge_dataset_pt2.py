@@ -16,7 +16,7 @@ ACTIVITIES = ['B1', 'F1', 'B2', 'F2', 'B3',
 NUM_ACTIVITIES = 10
 
 
-def camD_annotate(path, split_ratio=0.7, seed=21):
+def camD_annotate(path, split_ratio=0.7, seed=21, inference=False):
     """
     Read annotations and prepare training/test split
     Returns only file paths and bbox json for lazy loading
@@ -43,6 +43,9 @@ def camD_annotate(path, split_ratio=0.7, seed=21):
             'group_activity': gact_to_id[d_ent[-5:-3]],
             'bbox_dict': bbox_data
         })
+
+    if inference:
+        return [], annotations
 
     random.shuffle(annotations)
     split_idx = int(len(annotations) * split_ratio)

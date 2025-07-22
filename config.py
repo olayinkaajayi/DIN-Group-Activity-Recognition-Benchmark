@@ -8,12 +8,16 @@ class Config(object):
     class to save config parameter
     """
 
-    def __init__(self, dataset_name, use_root=False):
+    def __init__(self, dataset_name, data_folder=None, use_root=False):
         # Global
         self.image_size = 720, 1280  #input image size (H x W)
         self.batch_size =  32  #train batch size 
         self.test_batch_size = 8  #test batch size
         self.num_boxes = 12  #max number of bounding boxes in each frame
+
+        # Run model test
+        self.best_model_name = ''
+        self.run_test_only = False
         
         # Gpu
         self.use_gpu=True
@@ -31,12 +35,13 @@ class Config(object):
             self.test_seqs = [4,5,9,11,14,20,21,25,29,34,35,37,43,44,45,47]  #video id list of test set
         elif dataset_name=='cambridge':
             root = "/dcs/large/u2034358" if use_root else 'data'
-            self.data_path = f'{root}/CamD-1-Subset' if use_root else f'data/CamD-1'
+            self.data_folder = data_folder if data_folder is not None else 'CamD-1-Subset'
+            self.data_path = f'{root}/{self.data_folder}' if use_root else f'data/CamD-1'
             self.split_ratio = 0.8
             self.down_sample = True
             self.min_frame_id = 10
             self.ignore_last_n_frames = 10
-            self.max_video_len = 10 # increase this and see how it affects results
+            self.max_video_len = 20 # increase this and see how it affects results
             self.resize = True
         else:
             root = "/dcs/large/u2034358/" if use_root else 'data'
@@ -80,6 +85,7 @@ class Config(object):
         self.weight_decay = 0  #l2 weight decay
     
         self.max_epoch = 30  #max training epoch
+        self.start_epoch = 1
         self.test_interval_epoch = 1
         
         # Exp
