@@ -143,6 +143,10 @@ class Dynamic_Person_Inference(nn.Module):
 
         dynamic_ft = self.hidden_weight(dynamic_ft)
 
+        # The authors have not passed this through nonlinearity (according to eq 9)
+        # Also, eq 9 hasn't been fulfilled here. Where x and y are combined.
+        # Also, confirm the subscript "i" in eq 9, if it indexes all actors.
+
         return dynamic_ft, ft_infer_MAD
 
 
