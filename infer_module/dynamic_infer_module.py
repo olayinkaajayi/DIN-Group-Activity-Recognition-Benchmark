@@ -145,7 +145,8 @@ class Dynamic_Person_Inference(nn.Module):
 
         # The authors have not passed this through nonlinearity (according to eq 9)
         # Also, eq 9 hasn't been fulfilled here. Where x and y are combined.
-        # Also, confirm the subscript "i" in eq 9, if it indexes all actors.
+        # Also, confirm the subscript "i" in eq 9, if it indexes all actors ---> i, indexes across time (T) and actors (N), i: 1 to TN
+        # So each person (in time) just focuses on his/her interaction field.
 
         return dynamic_ft, ft_infer_MAD
 
@@ -279,6 +280,10 @@ class Dynamic_Person_Inference(nn.Module):
             ft_infer = torch.mean(ft_infer, dim = 3)
 
         return ft_infer, ft_infer_MAD # This means ---> Dynamic Relation, Dynamic Walk (according to the paper)
+    
+    def combine_dr_wt_dw(self, x_i, y_ik):
+        """Here we implement eq 9 correctly from the paper."""
+        
 
 
     def parallel_infer(self, person_features, ratio):
