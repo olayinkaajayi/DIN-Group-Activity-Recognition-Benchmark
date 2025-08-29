@@ -46,7 +46,7 @@ cfg.scale_factor = True
 cfg.beta_factor = False
 cfg.hierarchical_inference = False
 cfg.parallel_inference = False
-cfg.num_DIM = 1
+cfg.num_DIM = 1 ######## Consider increasing number of layers #########################################
 cfg.train_dropout_prob = 0.3
 
 cfg.batch_size = 12
