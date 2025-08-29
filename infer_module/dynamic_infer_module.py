@@ -258,7 +258,11 @@ class Dynamic_Person_Inference(nn.Module):
                    ft_rt * coe_rt.unsqueeze(-1)
         ft_infer_MAD = ft_infer
 
-        if self.scale_factor:
+        eq_9 = self.combine_dr_wt_dw(scale, person_features, ft_infer_MAD)
+
+        return eq_9
+        ########################### Ignored the rest of their approach here
+        # if self.scale_factor:
             # Dynamic relation matrix prediction using ft_infer
             # B, T, N, _, C = ft_infer.shape
             # ft_infer = ft_infer.view((B*T*N, self.kernel_size[0], self.kernel_size[1], C))
@@ -275,11 +279,11 @@ class Dynamic_Person_Inference(nn.Module):
             # scale = torch.einsum('btnf,btnkf->btnk', theta, fai)/torch.sqrt(torch.tensor(fai.shape[-1], device = fai.device, dtype=fai.dtype))
             # scale = F.softmax(scale, dim = -1)
 
-            ft_infer =  torch.sum(ft_infer * scale.unsqueeze(-1), dim = 3)
-        else:
-            ft_infer = torch.mean(ft_infer, dim = 3)
+        #     ft_infer =  torch.sum(ft_infer * scale.unsqueeze(-1), dim = 3)
+        # else:
+        #     ft_infer = torch.mean(ft_infer, dim = 3)
 
-        return ft_infer, ft_infer_MAD # This means ---> Dynamic Relation, Dynamic Walk (according to the paper)
+        # return ft_infer, ft_infer_MAD # This means ---> Dynamic Relation, Dynamic Walk (according to the paper)
     
     def combine_dr_wt_dw(self, a_ik, x_i, y_ik):
         """
