@@ -128,7 +128,7 @@ class Dynamic_Person_Inference(nn.Module):
                 ratio_feature.append(ratio_ft)
             else:
                 if self.dynamic_sampling:
-                    ratio_ft, ft_infer_MAD = self.dynamic_infer_ratio(person_features, ratio)
+                    ratio_ft = self.dynamic_infer_ratio(person_features, ratio) # removed ft_infer_MAD from output argument
                     ratio_feature.append(ratio_ft)
                 else:
                     ratio_ft = self.plain_infer_ratio(person_features, ratio)
@@ -139,16 +139,17 @@ class Dynamic_Person_Inference(nn.Module):
         if self.beta_factor:
             dynamic_ft = torch.sum(self.beta * ratio_feature, dim = -1)
         else:
+            # This is redundant, since we are using one sampling ratio
             dynamic_ft = torch.mean(ratio_feature, dim = 4)
 
-        dynamic_ft = self.hidden_weight(dynamic_ft)
+        # dynamic_ft = self.hidden_weight(dynamic_ft)
 
         # The authors have not passed this through nonlinearity (according to eq 9)
         # Also, eq 9 hasn't been fulfilled here. Where x and y are combined.
         # Also, confirm the subscript "i" in eq 9, if it indexes all actors ---> i, indexes across time (T) and actors (N), i: 1 to TN
         # So each person (in time) just focuses on his/her interaction field.
 
-        return dynamic_ft, ft_infer_MAD
+        return dynamic_ft
 
 
     def plain_infer_ratio(self, person_features, ratio):
