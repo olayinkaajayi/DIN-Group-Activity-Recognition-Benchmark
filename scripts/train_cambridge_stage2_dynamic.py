@@ -32,6 +32,7 @@ cfg.num_activities=10  #number of activity categories
 cfg.crop_size={'output_size':cfg.crop_size,
         'spatial_scale':1.0/16, # Adjust based on your backbone stride
         'sampling_ratio':2
+####################### Consider looking at changing backbone arguments ################################
         }
 
 
