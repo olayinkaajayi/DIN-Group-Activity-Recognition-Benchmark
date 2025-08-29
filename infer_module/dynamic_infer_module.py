@@ -281,9 +281,19 @@ class Dynamic_Person_Inference(nn.Module):
 
         return ft_infer, ft_infer_MAD # This means ---> Dynamic Relation, Dynamic Walk (according to the paper)
     
-    def combine_dr_wt_dw(self, x_i, y_ik):
-        """Here we implement eq 9 correctly from the paper."""
-        
+    def combine_dr_wt_dw(self, a_ik, x_i, y_ik):
+        """
+            Here we implement eq 9 correctly from the paper.
+            x_i: [B, NFB, T, N] --> person features
+            y_ik: [B, T, N,k2, NFB] --> k2 -> k^2 is the number of points in the interaction field.
+            a_ik: [B, T, N, K] --> scaling factors for interaction graph
+        """
+        #### -----> Confirm the dimensions of all the arguments
+        # apply equation 9
+        int_qnt = torch.sum(a_ik*self.hidden_weight(y_ik), dim=-2) # [B, T, N, NFB]
+        x_lp1 = F.relu(int_qnt) + x_i
+
+        return x_lp1
 
 
     def parallel_infer(self, person_features, ratio):
