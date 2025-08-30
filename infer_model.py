@@ -49,6 +49,8 @@ class Dynamic_volleyball(nn.Module):
         # unpack as kwarg to suit pytorch RoIAlign
         self.roi_align=RoIAlign(**self.cfg.crop_size)
         # self.avgpool_person = nn.AdaptiveAvgPool2d((1,1))
+
+############ Consider setting parameters of fc_emb_1 to not update ####################
         self.fc_emb_1 = nn.Linear(K*K*D,NFB)
         self.nl_emb_1 = nn.LayerNorm([NFB])
         
@@ -209,7 +211,8 @@ class Dynamic_volleyball(nn.Module):
         # Dynamic graph inference
         # graph_boxes_features = self.DPI(boxes_features)
 
-        graph_boxes_features = self.DPI(boxes_features) # removed ft_infer_MAD from output argument
+#################### Make changes here, as only one output is returned ############ 
+        graph_boxes_features, ft_infer_MAD = self.DPI(boxes_features)
         torch.cuda.empty_cache()
 
 
