@@ -128,7 +128,7 @@ class Dynamic_Person_Inference(nn.Module):
                 ratio_feature.append(ratio_ft)
             else:
                 if self.dynamic_sampling:
-                    ratio_ft = self.dynamic_infer_ratio(person_features, ratio) # removed ft_infer_MAD from output argument
+                    ratio_ft, ft_infer_MAD = self.dynamic_infer_ratio(person_features, ratio) # removed ft_infer_MAD from output argument
                     ratio_feature.append(ratio_ft)
                 else:
                     ratio_ft = self.plain_infer_ratio(person_features, ratio)
@@ -149,7 +149,7 @@ class Dynamic_Person_Inference(nn.Module):
         # Also, confirm the subscript "i" in eq 9, if it indexes all actors ---> i, indexes across time (T) and actors (N), i: 1 to TN
         # So each person (in time) just focuses on his/her interaction field.
 
-        return dynamic_ft
+        return dynamic_ft, ft_infer_MAD
 
 
     def plain_infer_ratio(self, person_features, ratio):
@@ -261,7 +261,7 @@ class Dynamic_Person_Inference(nn.Module):
 
         eq_9 = self.combine_dr_wt_dw(scale, person_features, ft_infer_MAD)
 
-        return eq_9
+        return eq_9, None
         ########################### Ignored the rest of their approach here
         # if self.scale_factor:
             # Dynamic relation matrix prediction using ft_infer
@@ -290,15 +290,14 @@ class Dynamic_Person_Inference(nn.Module):
         """
             Here we implement eq 9 correctly from the paper.
             x_i: [B, NFB, T, N] --> person features
-            y_ik: [B, T, N,k2, NFB] --> k2 -> k^2 is the number of points in the interaction field.
-            a_ik: [B, T, N, K] --> scaling factors for interaction graph
+            y_ik: [B, T, N, k2, NFB] --> k2 -> k^2 is the number of points in the interaction field.
+            a_ik: [B, T, N, k2] --> scaling factors for interaction graph
         """
-        #### -----> Confirm the dimensions of all the arguments
         # apply equation 9
-        int_qnt = torch.sum(a_ik*self.hidden_weight(y_ik), dim=-2) # [B, T, N, NFB]
-        x_lp1 = F.relu(int_qnt) + x_i
+        int_qnt = torch.sum(a_ik.unsqueeze(-1)*self.hidden_weight(y_ik), dim=-2) # [B, T, N, NFB]
+        x_lp1 = F.relu(int_qnt) + x_i.permute(0,2,3,1).contiguous() # [B, T, N, NFB]
 
-        return x_lp1
+        return x_lp1 # consider reshaping when you decide to use multiple layers  ###########################################
 
 
     def parallel_infer(self, person_features, ratio):
@@ -453,6 +452,7 @@ class Multi_Dynamic_Inference(nn.Module):
                  cfg = cfg) for i in range(num_DIM)])
 
     def forward(self, person_features):
+        ############## Modify this to take in ft_infer_MAD from previous layer ################
         DIM_features = []
         for i in range(len(self.DIMlist)):
             DIMft, ft_infer_MAD = self.DIMlist[i](person_features)
