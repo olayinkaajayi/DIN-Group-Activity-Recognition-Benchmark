@@ -1,6 +1,6 @@
 from volleyball import *
 from collective import *
-from cambridge_dataset_pt2 import camD_annotate, CambridgeDataset
+from cambridge_dataset import camD_annotate, CambridgeDataset
 from config import Config
 
 import pickle
