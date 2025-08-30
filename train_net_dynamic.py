@@ -132,6 +132,11 @@ def train_net(cfg):
     test_list={'cambridge':test_cambridge, 'volleyball':test_volleyball, 'collective':test_collective}
     train=train_list[cfg.dataset_name]
     test=test_list[cfg.dataset_name]
+
+    # Parameter size
+    nn_params = list(model.parameters())
+    Num_Param = sum(p.numel() for p in nn_params if p.requires_grad)
+    print_log(cfg.log_path, f'***Total Number of Trainable Parameters is {Num_Param}***')
     
     if cfg.test_before_train:
         test_info=test(validation_loader, model, device, 0, cfg)
@@ -139,6 +144,7 @@ def train_net(cfg):
 
     # Training iteration
     best_result = {'epoch':0, 'activities_acc':0}
+    filepath_best = 'nnn'
     start_epoch = cfg.start_epoch
     for epoch in range(start_epoch, start_epoch+cfg.max_epoch):
         
@@ -156,30 +162,40 @@ def train_net(cfg):
             
             if test_info['activities_acc']>best_result['activities_acc']:
                 best_result=test_info
+
+                # Delete former best model
+                if os.path.exists(filepath_best):
+                    os.remove(filepath_best)
+                    print(f"{filepath_best} has been deleted.")
+                else:
+                    print(f"{filepath_best} does not exist.")
+            
+            
+                # Save model
+                if cfg.training_stage==2:
+                    # None
+                    # if test_info['activities_acc'] > 93.1:
+                    state = {
+                        'epoch': epoch,
+                        'state_dict': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                    }
+                    filepath=cfg.result_path+'/stage%d_epoch%d_%.2f%%.pth'%(cfg.training_stage,epoch,test_info['activities_acc'])
+                    filepath_best=filepath
+                    torch.save(state, filepath)
+                    print('model saved to:',filepath)
+                elif cfg.training_stage==1:
+                    if test_info['activities_acc'] == best_result['activities_acc']:
+                        for m in model.modules():
+                            if isinstance(m, Basenet):
+                                filepath=cfg.result_path+'/stage%d_epoch%d_%.2f%%.pth'%(cfg.training_stage,epoch,test_info['activities_acc'])
+                                m.savemodel(filepath)
+        #                         print('model saved to:',filepath)
+                else:
+                    assert False
+            
             print_log(cfg.log_path, 
                       'Best group activity accuracy: %.2f%% at epoch #%d.'%(best_result['activities_acc'], best_result['epoch']))
-            
-            # Save model
-            if cfg.training_stage==2:
-                # None
-                # if test_info['activities_acc'] > 93.1:
-                state = {
-                    'epoch': epoch,
-                    'state_dict': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                }
-                filepath=cfg.result_path+'/stage%d_epoch%d_%.2f%%.pth'%(cfg.training_stage,epoch,test_info['activities_acc'])
-                torch.save(state, filepath)
-                print('model saved to:',filepath)
-            elif cfg.training_stage==1:
-                if test_info['activities_acc'] == best_result['activities_acc']:
-                    for m in model.modules():
-                        if isinstance(m, Basenet):
-                            filepath=cfg.result_path+'/stage%d_epoch%d_%.2f%%.pth'%(cfg.training_stage,epoch,test_info['activities_acc'])
-                            m.savemodel(filepath)
-    #                         print('model saved to:',filepath)
-            else:
-                assert False
 
 
 def train_cambridge(data_loader, model, device, optimizer, epoch, cfg):
