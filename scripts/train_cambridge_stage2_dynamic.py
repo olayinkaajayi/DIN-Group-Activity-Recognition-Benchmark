@@ -35,19 +35,21 @@ cfg.crop_size={'output_size':cfg.crop_size,
 ####################### Consider looking at changing backbone arguments ################################
         }
 
+cfg.use_random_sampling = True # just for training when selecting time frames.
 
 # Dynamic Inference setup
 cfg.group = 1
 cfg.stride = 1
-cfg.ST_kernel_size = [(3, 3)] #[(3, 3),(3, 3),(3, 3),(3, 3)]
 cfg.dynamic_sampling = True
 cfg.sampling_ratio = [1]
-cfg.lite_dim = None ######## Consider setting to None #########################################
+cfg.lite_dim = None #Set at some value less than 1024 to compress embedding dimension
 cfg.scale_factor = True
 cfg.beta_factor = False
 cfg.hierarchical_inference = False
 cfg.parallel_inference = False
-cfg.num_DIM = 1 ######## Consider increasing number of layers #########################################
+cfg.num_graph=0  #number of graphs (set to 0 to use multi-layer)
+cfg.num_DIM = 1 #number of layers
+cfg.ST_kernel_size = [(3, 3)]*cfg.num_DIM
 cfg.train_dropout_prob = 0.3
 
 cfg.batch_size = 12
