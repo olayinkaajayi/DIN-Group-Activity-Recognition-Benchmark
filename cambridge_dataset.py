@@ -54,7 +54,7 @@ def camD_annotate(path, split_ratio=0.7, seed=21, inference=False):
 
 class CambridgeDataset(data.Dataset):
     def __init__(self, ann, image_size=None, num_boxes=6, is_training=True, is_finetune=False, resize=False,
-                 down_sample=False, min_frame_id=10, ignore_last_n_frames=10, max_video_len=100):
+                 down_sample=False, min_frame_id=10, ignore_last_n_frames=10, max_video_len=100, use_random_sampling=False):
         """
         Args:
             ann: List of annotation dicts
@@ -74,6 +74,9 @@ class CambridgeDataset(data.Dataset):
         self.min_frame_id = min_frame_id
         self.ignore_last_n_frames = ignore_last_n_frames
         self.max_video_len = max_video_len
+
+        # Random frame sampling
+        self.use_random_sampling = use_random_sampling
 
     def __len__(self):
         return len(self.anns)
@@ -147,7 +150,7 @@ class CambridgeDataset(data.Dataset):
         images = self.ignore_ending_frames(images)
         bboxes = self.ignore_ending_frames(bboxes)
         # Downsampling
-        indices = self.downsample_frames(images)
+        indices = self.downsample_frames(images) if not self.use_random_sampling else self.random_temporal_sample(images)
         images = self.return_downsampled_items(images, indices)
         bboxes = self.return_downsampled_items(bboxes, indices)
 
@@ -220,6 +223,46 @@ class CambridgeDataset(data.Dataset):
             indices.sort()
 
         return indices
+    
+
+
+    def random_temporal_sample(self, frames):
+        """
+        Randomly sample uniformly distributed frames with jitter.
+        Ensures exactly self.max_video_len frames are selected.
+        
+        Args:
+            frames (list): List of frames (numpy arrays or tensors).
+        
+        Returns:
+            list: A list of sampled frames.
+        """
+        T = len(frames)
+        target_frame_count = self.max_video_len
+
+        # If video is short, return as-is or pad
+        if target_frame_count >= T:
+            return frames
+
+        # Divide video into equal segments
+        segment_length = T / target_frame_count
+        indices = []
+
+        for i in range(target_frame_count):
+            start = int(np.floor(i * segment_length))
+            end = int(np.floor((i + 1) * segment_length))
+
+            if start < end:
+                # pick a random frame inside this segment
+                idx = np.random.randint(start, end)
+            else:
+                # degenerate case: just pick start
+                idx = start
+            
+            indices.append(idx)
+
+        return indices
+
 
     
     def return_downsampled_items(self, ent_list, indices):
