@@ -211,8 +211,7 @@ class Dynamic_volleyball(nn.Module):
         # Dynamic graph inference
         # graph_boxes_features = self.DPI(boxes_features)
 
-#################### Make changes here, as only one output is returned ############ 
-        graph_boxes_features, ft_infer_MAD = self.DPI(boxes_features)
+        graph_boxes_features = self.DPI(boxes_features)
         torch.cuda.empty_cache()
 
 
