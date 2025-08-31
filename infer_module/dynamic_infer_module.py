@@ -76,21 +76,6 @@ class Dynamic_Person_Inference(nn.Module):
                 ratio_scale_conv.bias.data.zero_()
                 self.scale_conv[str(ratio)] = ratio_scale_conv
 
-                # Embedded dot-product relation
-                # self.theta = nn.Linear(in_dim, in_dim, bias = False)
-                # self.fai = nn.Linear(in_dim, in_dim, bias = False)
-
-
-        # Add to module
-        # for ratio, module in self.zero_padding.items():
-        #     self.add_module('zeropadding_{}'.format(ratio), module)
-        # if self.dynamic_sampling:
-        #     for ratio, module in self.p_conv.items():
-        #         self.add_module('p_conv_{}'.format(ratio), module)
-        # if self.scale_factor:
-        #     for ratio, module in self.scale_conv.items():
-        #         self.add_module('scale_conv_{}'.format(ratio), module)
-
         if cfg:
             print_log(cfg.log_path, "Dynamic sampling: {}, Scale factor: {}, ST-kernel:{}".format(dynamic_sampling, scale_factor, kernel_size))
 
@@ -99,17 +84,6 @@ class Dynamic_Person_Inference(nn.Module):
                 nn.init.kaiming_normal_(m.weight)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-
-        # Visualization Result
-        # Volleyball
-        # self.pos_list = torch.empty(([1337, 10, 12, 18]), dtype = torch.float32)
-        # self.relation_list = torch.empty((1337, 10, 12, 9), dtype = torch.float32)
-        # self.flag = 0
-        # Collective
-        # self.pos_list = []
-        # self.relation_list = []
-        # self.flag = 0
-
 
 
 
@@ -121,14 +95,15 @@ class Dynamic_Person_Inference(nn.Module):
         '''
         person_features = person_features.permute(0, 3, 1, 2) # [B, NFB, T, N]
         ratio_feature = []
-        for ratio in self.sampling_ratio:
+        for ratio in self.sampling_ratio: # Don't know what sampling ratio means here (we just have one of it)
             if self.parallel_inference:
                 assert self.dynamic_sampling and self.scale_factor
                 ratio_ft = self.parallel_infer(person_features, ratio)
                 ratio_feature.append(ratio_ft)
             else:
                 if self.dynamic_sampling:
-                    ratio_ft, ft_infer_MAD = self.dynamic_infer_ratio(person_features, ratio) # removed ft_infer_MAD from output argument
+                    # output of equation 9
+                    ratio_ft = self.dynamic_infer_ratio(person_features, ratio) # [B, T, N, NFB]
                     ratio_feature.append(ratio_ft)
                 else:
                     ratio_ft = self.plain_infer_ratio(person_features, ratio)
@@ -142,14 +117,7 @@ class Dynamic_Person_Inference(nn.Module):
             # This is redundant, since we are using one sampling ratio
             dynamic_ft = torch.mean(ratio_feature, dim = 4)
 
-        # dynamic_ft = self.hidden_weight(dynamic_ft)
-
-        # The authors have not passed this through nonlinearity (according to eq 9)
-        # Also, eq 9 hasn't been fulfilled here. Where x and y are combined.
-        # Also, confirm the subscript "i" in eq 9, if it indexes all actors ---> i, indexes across time (T) and actors (N), i: 1 to TN
-        # So each person (in time) just focuses on his/her interaction field.
-
-        return dynamic_ft, ft_infer_MAD
+        return dynamic_ft # [B, T, N, NFB]
 
 
     def plain_infer_ratio(self, person_features, ratio):
@@ -199,22 +167,12 @@ class Dynamic_Person_Inference(nn.Module):
         # Dynamic walk prediction using original features
         pos = self._get_pos(offset, ratio) # [B, T, N, 2*k2]
 
-
-        # Person_feature embedding
-        # person_features = person_features.permute(0, 2, 3, 1)
-        # person_features = self.hidden_weight(person_features)
-        # person_features = person_features.permute(0, 3, 1, 2)
-
         # Original
         lt = pos.data.floor()
         rb = lt + 1
-        # allow gradient
-        # lt = pos.floor()
-        # rb = lt + 1
-
 
         # Calclate bilinear coefficient
-            # corner point position. lt shape # [B, T, N, 2*k2]
+        # corner point position. lt shape # [B, T, N, 2*k2]
         pad_lr = (self.kernel_size[1] - 1) // 2 * ratio
         pad_tb = (self.kernel_size[0] - 1) // 2 * ratio
         k2 = self.kernel_size[0]*self.kernel_size[1]
@@ -233,20 +191,7 @@ class Dynamic_Person_Inference(nn.Module):
         coe_lb = (1 - torch.abs(pos[...,:k2] - lb[...,:k2]))*(1 - torch.abs(pos[...,k2:] - lb[...,k2:]))
         coe_rt = (1 - torch.abs(pos[...,:k2] - rt[...,:k2]))*(1 - torch.abs(pos[...,k2:] - rt[...,k2:]))
 
-        # Save visualization
-        # Volleyball
-        # self.relation_list[self.flag:(self.flag + scale.shape[0])] = scale
-        # self.pos_list[self.flag:(self.flag + pos.shape[0])] = pos
-        # Collective
-        # self.relation_list.append(scale.squeeze(dim = 0))
-        # self.pos_list.append(pos.squeeze(dim = 0))
-        # if self.flag == 764: # 1336
-        #     np.savez_compressed('vis/Collective/relation_pos.npz',
-        #                         relation_list = self.relation_list,
-        #                         pos_list = self.pos_list)
-        # self.flag += scale.shape[0]
-
-            # corner point feature.  ft shape [B, T, N, k2, NFB]
+        # corner point feature.  ft shape [B, T, N, k2, NFB]
         pad_ft = self.zero_padding[str(ratio)](person_features).permute(0, 2, 3, 1)
         pad_ft = pad_ft.view(pad_ft.shape[0], -1, pad_ft.shape[-1])
         ft_lt = self._get_ft(pad_ft, lt.long(), ratio)
@@ -259,32 +204,10 @@ class Dynamic_Person_Inference(nn.Module):
                    ft_rt * coe_rt.unsqueeze(-1)
         ft_infer_MAD = ft_infer
 
-        eq_9 = self.combine_dr_wt_dw(scale, person_features, ft_infer_MAD)
+        eq_9 = self.combine_dr_wt_dw(scale, person_features, ft_infer_MAD) # [B, T, N, NFB]
 
-        return eq_9, None
-        ########################### Ignored the rest of their approach here
-        # if self.scale_factor:
-            # Dynamic relation matrix prediction using ft_infer
-            # B, T, N, _, C = ft_infer.shape
-            # ft_infer = ft_infer.view((B*T*N, self.kernel_size[0], self.kernel_size[1], C))
-            # ft_infer = ft_infer.permute((0, 3, 1, 2))
-            # scale = self.scale_conv[str(ratio)](person_features).permute(0, 2, 3, 1)
-            # scale = F.softmax(scale, dim=-1)
-            # ft_infer = ft_infer.permute((0, 2, 3, 1))
-            # ft_infer = ft_infer.view((B, T, N, self.kernel_size[0]*self.kernel_size[1], C))
-
-            # Embedded dot-product relation
-            # person_features = person_features.permute(0,2,3,1) # [B, T, N, NFB]
-            # theta = self.theta(person_features) # [B, T, N, NFB]
-            # fai = self.fai(ft_infer) # [B, T, N, K2, NFB]
-            # scale = torch.einsum('btnf,btnkf->btnk', theta, fai)/torch.sqrt(torch.tensor(fai.shape[-1], device = fai.device, dtype=fai.dtype))
-            # scale = F.softmax(scale, dim = -1)
-
-        #     ft_infer =  torch.sum(ft_infer * scale.unsqueeze(-1), dim = 3)
-        # else:
-        #     ft_infer = torch.mean(ft_infer, dim = 3)
-
-        # return ft_infer, ft_infer_MAD # This means ---> Dynamic Relation, Dynamic Walk (according to the paper)
+        return eq_9
+        
     
     def combine_dr_wt_dw(self, a_ik, x_i, y_ik):
         """
@@ -297,7 +220,7 @@ class Dynamic_Person_Inference(nn.Module):
         int_qnt = torch.sum(a_ik.unsqueeze(-1)*self.hidden_weight(y_ik), dim=-2) # [B, T, N, NFB]
         x_lp1 = F.relu(int_qnt) + x_i.permute(0,2,3,1).contiguous() # [B, T, N, NFB]
 
-        return x_lp1 # consider reshaping when you decide to use multiple layers  ###########################################
+        return x_lp1
 
 
     def parallel_infer(self, person_features, ratio):
@@ -438,7 +361,25 @@ class Multi_Dynamic_Inference(nn.Module):
                  cfg = None):
         super(Multi_Dynamic_Inference, self).__init__()
 
-        self.DIMlist = nn.ModuleList([Dynamic_Person_Inference(
+        self.multi_graph = cfg.num_graph
+
+        if self.multi_graph:
+            self.DIMlist = nn.ModuleList([Dynamic_Person_Inference(
+                 in_dim = in_dim,
+                 person_mat_shape = person_mat_shape,
+                 stride = stride,
+                 kernel_size = kernel_size[i],
+                 dynamic_sampling = dynamic_sampling,
+                 sampling_ratio = sampling_ratio,
+                 group = group,
+                 scale_factor = scale_factor,
+                 beta_factor = beta_factor,
+                 parallel_inference = parallel_inference,
+                 cfg = cfg) for i in range(self.multi_graph)])
+            if self.multi_graph > 1:
+                print_log(cfg.log_path, f"***Using multi-graph. Number of graphs is {self.multi_graph}.")
+        else:
+            self.DIMlist = nn.ModuleList([Dynamic_Person_Inference(
                  in_dim = in_dim,
                  person_mat_shape = person_mat_shape,
                  stride = stride,
@@ -450,16 +391,26 @@ class Multi_Dynamic_Inference(nn.Module):
                  beta_factor = beta_factor,
                  parallel_inference = parallel_inference,
                  cfg = cfg) for i in range(num_DIM)])
+            if num_DIM > 1:
+                print_log(cfg.log_path, f"***Using multi-layer. Number of layers is {num_DIM}.")
+
 
     def forward(self, person_features):
-        ############## Modify this to take in ft_infer_MAD from previous layer ################
-        DIM_features = []
-        for i in range(len(self.DIMlist)):
-            DIMft, ft_infer_MAD = self.DIMlist[i](person_features)
-            DIM_features.append(DIMft)
-        DIM_features = torch.sum(torch.stack(DIM_features, dim = 0), dim = 0)
-
-        return DIM_features, ft_infer_MAD
+        
+        if self.multi_graph:
+            # This is for multiple graphs
+            DIM_features = []
+            for i in range(len(self.DIMlist)):
+                DIMft = self.DIMlist[i](person_features)
+                DIM_features.append(DIMft)
+            DIM_features = torch.sum(torch.stack(DIM_features, dim = 0), dim = 0)
+        else:
+            # This is for multiple layers
+            DIM_features = person_features
+            for i in range(len(self.DIMlist)):
+                DIM_features = self.DIMlist[i](DIM_features) # [B, T, N, NFB]
+                
+        return DIM_features
 
 
 class Hierarchical_Dynamic_Inference(nn.Module):
