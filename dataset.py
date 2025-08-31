@@ -50,7 +50,7 @@ def return_dataset(cfg):
         
         training_set=CambridgeDataset(train_anns,cfg.image_size,is_training=True,is_finetune=(cfg.training_stage==1),
                                        num_boxes=cfg.num_boxes,down_sample=cfg.down_sample,resize=cfg.resize,min_frame_id=cfg.min_frame_id,
-                                       ignore_last_n_frames=cfg.ignore_last_n_frames,max_video_len=cfg.max_video_len) if not cfg.run_test_only else []
+                                       ignore_last_n_frames=cfg.ignore_last_n_frames,max_video_len=cfg.max_video_len, use_random_sampling=cfg.use_random_sampling) if not cfg.run_test_only else []
 
         validation_set=CambridgeDataset(test_anns,cfg.image_size,is_training=False,is_finetune=(cfg.training_stage==1),
                                         num_boxes=cfg.num_boxes,down_sample=cfg.down_sample,resize=cfg.resize,min_frame_id=cfg.min_frame_id,

@@ -43,6 +43,7 @@ class Config(object):
             self.ignore_last_n_frames = 10
             self.max_video_len = 20 # increase this and see how it affects results
             self.resize = True
+            self.use_random_sampling = False
         else:
             root = "/dcs/large/u2034358/" if use_root else 'data'
             self.data_path=f'{root}/collective'  #data path for the collective dataset
@@ -71,7 +72,7 @@ class Config(object):
         # ARG params
         self.num_features_boxes = 1024
         self.num_features_relation=256
-        self.num_graph=16  #number of graphs
+        self.num_graph=0  #number of graphs
         self.num_features_gcn=self.num_features_boxes
         self.gcn_layers=1  #number of GCN layers
         self.tau_sqrt=False
