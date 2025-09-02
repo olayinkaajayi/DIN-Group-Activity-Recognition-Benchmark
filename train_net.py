@@ -99,6 +99,7 @@ def train_net(cfg):
 
     # Training iteration
     best_result={'epoch':0, 'activities_acc':0}
+    filepath_best = 'nnn'
     start_epoch=1
     for epoch in range(start_epoch, start_epoch+cfg.max_epoch):
         
@@ -116,80 +117,87 @@ def train_net(cfg):
             
             if test_info['activities_acc']>best_result['activities_acc']:
                 best_result=test_info
+
+                # Delete former best model
+                if os.path.exists(filepath_best):
+                    os.remove(filepath_best)
+                    print(f"{filepath_best} has been deleted.")
+                else:
+                    print(f"{filepath_best} does not exist.")
+            
+                # Save model
+                if cfg.training_stage==2:
+                    state = {
+                        'epoch': epoch,
+                        'state_dict': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                    }
+                    filepath=cfg.result_path+'/stage%d_epoch%d_%.2f%%.pth'%(cfg.training_stage,epoch,test_info['activities_acc'])
+                    filepath_best=filepath
+                    torch.save(state, filepath)
+                    print('model saved to:',filepath)   
+                elif cfg.training_stage==1:
+                    if test_info['activities_acc'] == best_result['activities_acc']:
+                        for m in model.modules():
+                            if isinstance(m, Basenet):
+                                filepath=cfg.result_path+'/stage%d_epoch%d_%.2f%%.pth'%(cfg.training_stage,epoch,test_info['activities_acc'])
+                                m.savemodel(filepath)
+        #                         print('model saved to:',filepath)
+                    filepath_best=filepath
+                else:
+                    assert False
+
             print_log(cfg.log_path, 
                       'Best group activity accuracy: %.2f%% at epoch #%d.'%(best_result['activities_acc'], best_result['epoch']))
-            
-            # Save model
-            if cfg.training_stage==2:
-                state = {
-                    'epoch': epoch,
-                    'state_dict': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                }
-                filepath=cfg.result_path+'/stage%d_epoch%d_%.2f%%.pth'%(cfg.training_stage,epoch,test_info['activities_acc'])
-                torch.save(state, filepath)
-                print('model saved to:',filepath)   
-            elif cfg.training_stage==1:
-                if test_info['activities_acc'] == best_result['activities_acc']:
-                    for m in model.modules():
-                        if isinstance(m, Basenet):
-                            filepath=cfg.result_path+'/stage%d_epoch%d_%.2f%%.pth'%(cfg.training_stage,epoch,test_info['activities_acc'])
-                            m.savemodel(filepath)
-    #                         print('model saved to:',filepath)
-            else:
-                assert False
     
 
  
 def train_cambridge(data_loader, model, device, optimizer, epoch, cfg):
-    
-    actions_meter=AverageMeter()
     activities_meter=AverageMeter()
     loss_meter=AverageMeter()
     epoch_timer=Timer()
-    for batch_data in data_loader:
+    activities_conf = ConfusionMeter(cfg.num_activities)
+    for batch_idx, batch_data in enumerate(data_loader):
+        
         model.train()
         if cfg.set_bn_eval:
             model.apply(set_bn_eval)
     
         # prepare batch data
-        batch_data=[b.to(device=device) for b in batch_data]
+        batch_data=[b.to(device = device) for b in batch_data]
         batch_size=batch_data[0].shape[0]
-        num_frames=batch_data[0].shape[1]
-
-        actions_in=batch_data[2].reshape((batch_size,num_frames,cfg.num_boxes))
-        activities_in=batch_data[3].reshape((batch_size,num_frames))
-
-        actions_in=actions_in[:,0,:].reshape((batch_size*cfg.num_boxes,))
+        
+        activities_in=batch_data[2]
         activities_in=activities_in[:,0].reshape((batch_size,))
 
         # forward
-        actions_scores,activities_scores=model((batch_data[0],batch_data[1]))
-
-        # Predict actions
-        actions_loss=F.cross_entropy(actions_scores,actions_in)  
-        actions_labels=torch.argmax(actions_scores,dim=1)  
-        actions_correct=torch.sum(torch.eq(actions_labels.int(),actions_in.int()).float())
+        ret= model((batch_data[0], batch_data[1]))
 
         # Predict activities
-        activities_loss=F.cross_entropy(activities_scores,activities_in)
-        activities_labels=torch.argmax(activities_scores,dim=1)  
-        activities_correct=torch.sum(torch.eq(activities_labels.int(),activities_in.int()).float())
+        loss_list = []
+        if 'activities' in list(ret.keys()):
+            activities_scores = ret['activities']
+            activities_loss = F.cross_entropy(activities_scores,activities_in)
+            loss_list.append(activities_loss)
+            activities_labels = torch.argmax(activities_scores,dim=1)
+            activities_correct = torch.sum(torch.eq(activities_labels.int(),activities_in.int()).float())
+            activities_accuracy = activities_correct.item() / activities_scores.shape[0]
+            activities_meter.update(activities_accuracy, activities_scores.shape[0])
+            activities_conf.add(activities_labels, activities_in)
 
-        # Get accuracy
-        actions_accuracy=actions_correct.item()/actions_scores.shape[0]
-        activities_accuracy=activities_correct.item()/activities_scores.shape[0]
-        
-        actions_meter.update(actions_accuracy, actions_scores.shape[0])
-        activities_meter.update(activities_accuracy, activities_scores.shape[0])
 
-        # Total loss
-        total_loss=activities_loss+cfg.actions_loss_weight*actions_loss
+        if 'halting' in list(ret.keys()):
+            loss_list.append(ret['halting']*cfg.halting_penalty)
+
+        # print(loss_list)
+        total_loss = sum(loss_list)
         loss_meter.update(total_loss.item(), batch_size)
 
         # Optim
         optimizer.zero_grad()
         total_loss.backward()
+        # Test max_clip_norm
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
         optimizer.step()
     
     train_info={
@@ -197,7 +205,8 @@ def train_cambridge(data_loader, model, device, optimizer, epoch, cfg):
         'epoch':epoch,
         'loss':loss_meter.avg,
         'activities_acc':activities_meter.avg*100,
-        'actions_acc':actions_meter.avg*100
+        'activities_conf':activities_conf.value(),
+        'activities_MPCA':MPCA(activities_conf.value()),
     }
     
     return train_info
@@ -205,50 +214,44 @@ def train_cambridge(data_loader, model, device, optimizer, epoch, cfg):
     
 def test_cambridge(data_loader, model, device, epoch, cfg):
     model.eval()
-    
-    actions_meter=AverageMeter()
     activities_meter=AverageMeter()
     loss_meter=AverageMeter()
-    
+    activities_conf = ConfusionMeter(cfg.num_activities)
     epoch_timer=Timer()
+
     with torch.no_grad():
         for batch_data_test in data_loader:
             # prepare batch data
             batch_data_test=[b.to(device=device) for b in batch_data_test]
-            
             batch_size=batch_data_test[0].shape[0]
             num_frames=batch_data_test[0].shape[1]
 
-            # Shape already what we want
-            actions_in=batch_data_test[2]#.reshape((batch_size,num_frames,cfg.num_boxes))
-            activities_in=batch_data_test[3]#.reshape((batch_size,num_frames))
+            activities_in=batch_data_test[2].reshape((batch_size,num_frames))
             
             # forward
-            actions_scores,activities_scores=model((batch_data_test[0],batch_data_test[1]))
+            ret = model((batch_data_test[0], batch_data_test[1]))
             
-            # Predict actions
-            actions_in=actions_in[:,0,:].reshape((batch_size*cfg.num_boxes,))
+            # Predict activities
             activities_in=activities_in[:,0].reshape((batch_size,))
-            
-            actions_loss=F.cross_entropy(actions_scores,actions_in)  
-            actions_labels=torch.argmax(actions_scores,dim=1) 
 
             # Predict activities
-            activities_loss=F.cross_entropy(activities_scores,activities_in)
-            activities_labels=torch.argmax(activities_scores,dim=1) 
-            
-            actions_correct=torch.sum(torch.eq(actions_labels.int(),actions_in.int()).float())
-            activities_correct=torch.sum(torch.eq(activities_labels.int(),activities_in.int()).float())
-            
-            # Get accuracy
-            actions_accuracy=actions_correct.item()/actions_scores.shape[0]
-            activities_accuracy=activities_correct.item()/activities_scores.shape[0]
+            loss_list = []
+            if 'activities' in list(ret.keys()):
+                activities_scores = ret['activities']
+                activities_loss = F.cross_entropy(activities_scores,activities_in)
+                loss_list.append(activities_loss)
+                activities_labels = torch.argmax(activities_scores,dim=1)
 
-            actions_meter.update(actions_accuracy, actions_scores.shape[0])
-            activities_meter.update(activities_accuracy, activities_scores.shape[0])
+                activities_correct = torch.sum(torch.eq(activities_labels.int(),activities_in.int()).float())
+                activities_accuracy = activities_correct.item() / activities_scores.shape[0]
+                activities_meter.update(activities_accuracy, activities_scores.shape[0])
+                activities_conf.add(activities_labels, activities_in)
+
+            if 'halting' in list(ret.keys()):
+                loss_list.append(ret['halting'])
 
             # Total loss
-            total_loss=activities_loss+cfg.actions_loss_weight*actions_loss
+            total_loss = sum(loss_list)
             loss_meter.update(total_loss.item(), batch_size)
 
     test_info={
@@ -256,11 +259,13 @@ def test_cambridge(data_loader, model, device, epoch, cfg):
         'epoch':epoch,
         'loss':loss_meter.avg,
         'activities_acc':activities_meter.avg*100,
-        'actions_acc':actions_meter.avg*100
+        'activities_conf': activities_conf.value(),
+        'activities_MPCA': MPCA(activities_conf.value()),
     }
     
     return test_info
-   
+
+
    
 def train_volleyball(data_loader, model, device, optimizer, epoch, cfg):
     
