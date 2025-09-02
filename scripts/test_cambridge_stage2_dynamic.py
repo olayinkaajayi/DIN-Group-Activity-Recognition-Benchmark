@@ -5,7 +5,7 @@ from train_net_dynamic import *
 cfg=Config('cambridge', data_folder='CamD-1-Subset-2',use_root=True)
 cfg.inference_module_name = 'dynamic_cambridge'
 
-cfg.device_list = "0,1,2"
+cfg.device_list = "0,1"
 cfg.use_gpu = True
 cfg.use_multi_gpu = True
 cfg.training_stage = 2
@@ -17,7 +17,7 @@ cfg.test_interval_epoch = 1
 cfg.run_test_only = True
 cfg.load_stage2model = True
 cfg.load_backbone_stage2 = False
-cfg.stage2model = 'result/CamD-1-Subset_stage2_T=20_epoch9_75.86%.pth'
+cfg.stage2model = 'result/CamD-1-Subset_stage2_T=20_epoch7_84.48%.pth'
 cfg.max_video_len = 20
 cfg.test_batch_size = 12
 cfg.start_epoch = 0
@@ -49,15 +49,16 @@ cfg.crop_size={'output_size':cfg.crop_size,
 # Dynamic Inference setup
 cfg.group = 1
 cfg.stride = 1
-cfg.ST_kernel_size = [(3, 3)] #[(3, 3),(3, 3),(3, 3),(3, 3)]
 cfg.dynamic_sampling = True
 cfg.sampling_ratio = [1]
-cfg.lite_dim = 128 # None # 128
+cfg.lite_dim = None #Set at some value less than 1024 to compress embedding dimension
 cfg.scale_factor = True
 cfg.beta_factor = False
 cfg.hierarchical_inference = False
 cfg.parallel_inference = False
-cfg.num_DIM = 1
+cfg.num_graph=0  #number of graphs (set to 0 to use multi-layer)
+cfg.num_DIM = 1 #number of layers
+cfg.ST_kernel_size = [(3, 3)]*cfg.num_DIM
 cfg.train_dropout_prob = 0.3
 
 cfg.batch_size = 12
