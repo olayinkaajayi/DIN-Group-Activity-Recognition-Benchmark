@@ -180,7 +180,7 @@ class CambridgeDataset(data.Dataset):
             list: A uniformly downsampled list of frames.
         """
         if self.is_finetune:
-            return self.downsample_frames_random(frames)
+            return self.downsample_frames_random(frames, order=True)
         
         T = len(frames)
         target_frame_count = self.max_video_len
