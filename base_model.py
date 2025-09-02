@@ -135,9 +135,9 @@ class Basenet_volleyball(nn.Module):
         boxes_states=boxes_features.reshape(B,T,N,NFB)
         
         # Predict actions
-        boxes_states_flat=boxes_states.reshape(-1,NFB)  #B*T*N, NFB
+        # boxes_states_flat=boxes_states.reshape(-1,NFB)  #B*T*N, NFB
 
-        actions_scores=self.fc_actions(boxes_states_flat)  #B*T*N, actn_num
+        # actions_scores=self.fc_actions(boxes_states_flat)  #B*T*N, actn_num
         
         
         # Predict activities
@@ -147,10 +147,10 @@ class Basenet_volleyball(nn.Module):
         activities_scores=self.fc_activities(boxes_states_pooled_flat)  #B*T, acty_num
         
         if T!=1:
-            actions_scores=actions_scores.reshape(B,T,N,-1).mean(dim=1).reshape(B*N,-1)
+            # actions_scores=actions_scores.reshape(B,T,N,-1).mean(dim=1).reshape(B*N,-1)
             activities_scores=activities_scores.reshape(B,T,-1).mean(dim=1)
             
-        return actions_scores, activities_scores
+        return {'activities':activities_scores}
         
         
 class Basenet_collective(nn.Module):
