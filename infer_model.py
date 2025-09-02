@@ -168,6 +168,8 @@ class Dynamic_volleyball(nn.Module):
         # Build  features
         assert outputs[0].shape[2:4]==torch.Size([OH,OW])
         features_multiscale=[]
+        # This is an extra step of caution to ensure the dimensions of the output from our backbone matches
+        # the expected shape.
         for features in outputs:
             if features.shape[2:4]!=torch.Size([OH,OW]):
                 features=F.interpolate(features,size=(OH,OW),mode='bilinear',align_corners=True)
@@ -208,8 +210,6 @@ class Dynamic_volleyball(nn.Module):
         else:
             None
 
-        # Dynamic graph inference
-        # graph_boxes_features = self.DPI(boxes_features)
 
         graph_boxes_features = self.DPI(boxes_features)
         torch.cuda.empty_cache()
@@ -230,19 +230,13 @@ class Dynamic_volleyball(nn.Module):
             boxes_states = F.relu(boxes_states, inplace = True)
             boxes_states = self.dropout_global(boxes_states)
 
-
-        # Predict actions
-        # boxes_states_flat=boxes_states.reshape(-1,NFS)  #B*T*N, NFS
-        # actions_scores=self.fc_actions(boxes_states_flat)  #B*T*N, actn_num
-        
+ 
         # Predict activities
         boxes_states_pooled, _ = torch.max(boxes_states,dim=2)
         boxes_states_pooled_flat = boxes_states_pooled.reshape(B*T, -1)
         activities_scores = self.fc_activities(boxes_states_pooled_flat)  #B*T, acty_num
         
         # Temporal fusion
-        # actions_scores = actions_scores.reshape(B,T,N,-1)
-        # actions_scores = torch.mean(actions_scores,dim=1).reshape(B*N,-1)
         activities_scores = activities_scores.reshape(B, T, -1)
         activities_scores = torch.mean(activities_scores,dim=1).reshape(B,-1)
 
